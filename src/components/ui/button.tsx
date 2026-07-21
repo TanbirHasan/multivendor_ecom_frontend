@@ -13,15 +13,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:outline-indigo-600 disabled:bg-indigo-300",
+    "bg-stone-950 text-white shadow-sm shadow-stone-950/15 hover:bg-stone-800 focus-visible:outline-stone-900 disabled:bg-stone-400 dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400 dark:disabled:bg-amber-300/50",
   secondary:
-    "bg-slate-900 text-white hover:bg-slate-800 focus-visible:outline-slate-900 disabled:bg-slate-400",
+    "bg-teal-700 text-white shadow-sm shadow-teal-900/15 hover:bg-teal-600 focus-visible:outline-teal-700 disabled:bg-teal-300",
   outline:
-    "border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 focus-visible:outline-indigo-600 disabled:text-slate-400 dark:bg-transparent dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800",
+    "border border-stone-300/80 bg-white/80 text-stone-800 shadow-sm shadow-stone-950/5 hover:border-stone-400 hover:bg-white focus-visible:outline-stone-900 disabled:text-stone-400 dark:border-stone-700 dark:bg-stone-900/70 dark:text-stone-100 dark:hover:bg-stone-800",
   ghost:
-    "text-slate-600 hover:bg-slate-100 focus-visible:outline-indigo-600 dark:text-slate-300 dark:hover:bg-slate-800",
+    "text-stone-600 hover:bg-stone-900/5 focus-visible:outline-stone-900 dark:text-stone-300 dark:hover:bg-white/10",
   danger:
-    "bg-red-600 text-white hover:bg-red-500 focus-visible:outline-red-600 disabled:bg-red-300",
+    "bg-red-600 text-white shadow-sm shadow-red-900/15 hover:bg-red-500 focus-visible:outline-red-600 disabled:bg-red-300",
 };
 
 const sizeClasses: Record<Size, string> = {

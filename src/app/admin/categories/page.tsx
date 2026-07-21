@@ -97,23 +97,28 @@ function AdminCategoriesContent() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Manage categories</h1>
-      <p className="mt-1 text-sm text-slate-500">Categories organize products across the marketplace.</p>
+    <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="rounded-[2rem] border border-stone-200/70 bg-white/76 p-6 shadow-sm shadow-stone-950/5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/68">
+        <span className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-teal-700 text-white dark:bg-amber-400 dark:text-stone-950">
+          <Layers className="size-5" />
+        </span>
+        <h1 className="text-3xl font-black tracking-tight text-stone-950 dark:text-white">Manage categories</h1>
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">Categories organize products across the marketplace.</p>
 
-      <form onSubmit={handleCreate} className="mt-6 flex gap-2">
-        <Input
-          id="new-category"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          placeholder="New category name"
-          className="flex-1"
-        />
-        <Button type="submit" isLoading={isCreating}>
-          <Plus className="size-4" />
-          Add
-        </Button>
-      </form>
+        <form onSubmit={handleCreate} className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Input
+            id="new-category"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="New category name"
+            className="flex-1"
+          />
+          <Button type="submit" isLoading={isCreating}>
+            <Plus className="size-4" />
+            Add
+          </Button>
+        </form>
+      </div>
 
       <div className="mt-8">
         {isLoading ? (
@@ -121,11 +126,11 @@ function AdminCategoriesContent() {
         ) : categories.length === 0 ? (
           <EmptyState icon={Layers} title="No categories yet" description="Create your first category above." />
         ) : (
-          <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+          <ul className="divide-y divide-stone-100 overflow-hidden rounded-3xl border border-stone-200/70 bg-white/84 shadow-xl shadow-stone-950/8 backdrop-blur dark:divide-stone-800 dark:border-stone-800 dark:bg-stone-900/78">
             {categories.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
+              <li key={c.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                 {editingId === c.id ? (
-                  <div className="flex flex-1 items-center gap-2">
+                  <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
                     <Input
                       id={`edit-${c.id}`}
                       value={editingName}
@@ -143,8 +148,8 @@ function AdminCategoriesContent() {
                 ) : (
                   <>
                     <div>
-                      <p className="font-medium text-slate-800 dark:text-slate-100">{c.name}</p>
-                      <p className="text-xs text-slate-400">Added {formatDate(c.createdAt)}</p>
+                      <p className="font-bold text-stone-800 dark:text-stone-100">{c.name}</p>
+                      <p className="text-xs font-medium text-stone-400">Added {formatDate(c.createdAt)}</p>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => startEdit(c)}>

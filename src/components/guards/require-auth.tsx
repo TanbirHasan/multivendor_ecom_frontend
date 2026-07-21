@@ -28,7 +28,7 @@ export function RequireAuth({
   }, [isInitializing, isAuthenticated, user, roles, router]);
 
   if (isInitializing || !isAuthenticated || (roles && user && !roles.includes(user.role))) {
-    return <PageSpinner label="Checking your session…" />;
+    return <PageSpinner label="Checking your session..." />;
   }
 
   return <>{children}</>;

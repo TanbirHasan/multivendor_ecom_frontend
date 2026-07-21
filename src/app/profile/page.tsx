@@ -49,23 +49,23 @@ function ProfileContent() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-8 flex items-center gap-4">
-        <span className="flex size-14 items-center justify-center rounded-full bg-indigo-600 text-lg font-semibold text-white">
+    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mb-8 flex items-center gap-4 rounded-[2rem] border border-stone-200/70 bg-white/76 p-6 shadow-sm shadow-stone-950/5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/68">
+        <span className="flex size-16 items-center justify-center rounded-2xl bg-teal-700 text-xl font-black text-white shadow-sm shadow-teal-900/15 dark:bg-amber-400 dark:text-stone-950">
           {initials(user.name)}
         </span>
         <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">{user.name}</h1>
+          <h1 className="text-2xl font-black tracking-tight text-stone-950 dark:text-white">{user.name}</h1>
           <div className="mt-1 flex items-center gap-2">
             <RoleBadge role={user.role} />
-            <span className="text-xs text-slate-400">Joined {formatDate(user.createdAt)}</span>
+            <span className="text-xs font-medium text-stone-400">Joined {formatDate(user.createdAt)}</span>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <form onSubmit={handleSubmit} className="space-y-5 rounded-3xl border border-stone-200/70 bg-white/84 p-6 shadow-xl shadow-stone-950/8 backdrop-blur dark:border-stone-800 dark:bg-stone-900/78">
         {error && (
-          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-400">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-400/20 dark:bg-red-500/10 dark:text-red-400">
             {error}
           </div>
         )}

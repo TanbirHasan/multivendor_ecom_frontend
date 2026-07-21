@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Trash2, Users } from "lucide-react";
+import { Shield, Trash2, Users } from "lucide-react";
 import { RequireAuth } from "@/components/guards/require-auth";
 import { useAuth } from "@/hooks/use-auth";
 import { deleteUser, listUsers, updateUser } from "@/lib/api/users";
@@ -75,9 +75,14 @@ function AdminUsersContent() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Manage users</h1>
-      <p className="mt-1 text-sm text-slate-500">View accounts, change roles, or remove users.</p>
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="rounded-[2rem] border border-stone-200/70 bg-white/76 p-6 shadow-sm shadow-stone-950/5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/68">
+        <span className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-teal-700 text-white dark:bg-amber-400 dark:text-stone-950">
+          <Shield className="size-5" />
+        </span>
+        <h1 className="text-3xl font-black tracking-tight text-stone-950 dark:text-white">Manage users</h1>
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">View accounts, change roles, or remove users.</p>
+      </div>
 
       <div className="mt-8">
         {isLoading ? (
@@ -85,32 +90,32 @@ function AdminUsersContent() {
         ) : users.length === 0 ? (
           <EmptyState icon={Users} title="No users found" />
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/50">
+          <div className="overflow-x-auto rounded-3xl border border-stone-200/70 bg-white/84 shadow-xl shadow-stone-950/8 backdrop-blur dark:border-stone-800 dark:bg-stone-900/78">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-[0.14em] text-stone-500 dark:border-stone-800 dark:bg-stone-950/40">
                 <tr>
-                  <th className="px-5 py-3 font-medium">User</th>
-                  <th className="px-5 py-3 font-medium">Joined</th>
-                  <th className="px-5 py-3 font-medium">Role</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
+                  <th className="px-5 py-3 font-bold">User</th>
+                  <th className="px-5 py-3 font-bold">Joined</th>
+                  <th className="px-5 py-3 font-bold">Role</th>
+                  <th className="px-5 py-3 font-bold text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                 {users.map((u) => (
-                  <tr key={u.id} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                    <td className="px-5 py-3">
+                  <tr key={u.id} className="transition-colors hover:bg-stone-50/80 dark:hover:bg-stone-800/40">
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <span className="flex size-8 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+                        <span className="flex size-9 items-center justify-center rounded-2xl bg-teal-700 text-xs font-black text-white dark:bg-amber-400 dark:text-stone-950">
                           {initials(u.name)}
                         </span>
                         <div>
-                          <p className="font-medium text-slate-800 dark:text-slate-100">{u.name}</p>
-                          <p className="text-xs text-slate-400">{u.email}</p>
+                          <p className="font-bold text-stone-800 dark:text-stone-100">{u.name}</p>
+                          <p className="text-xs font-medium text-stone-400">{u.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-slate-500">{formatDate(u.createdAt)}</td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-4 text-stone-500">{formatDate(u.createdAt)}</td>
+                    <td className="px-5 py-4">
                       {u.id === currentUser?.id ? (
                         <RoleBadge role={u.role} />
                       ) : (
@@ -118,7 +123,7 @@ function AdminUsersContent() {
                           value={u.role}
                           disabled={savingId === u.id}
                           onChange={(e) => handleRoleChange(u, e.target.value as Role)}
-                          className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-900"
+                          className="rounded-xl border border-stone-300 bg-white px-2.5 py-1.5 text-sm font-semibold text-stone-800 shadow-sm shadow-stone-950/5 focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-600/10 dark:border-stone-700 dark:bg-stone-950 dark:text-stone-100"
                         >
                           {ROLES.map((r) => (
                             <option key={r} value={r}>
@@ -128,7 +133,7 @@ function AdminUsersContent() {
                         </select>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-right">
+                    <td className="px-5 py-4 text-right">
                       {u.id !== currentUser?.id && (
                         <Button variant="danger" size="sm" onClick={() => setTarget(u)}>
                           <Trash2 className="size-3.5" />

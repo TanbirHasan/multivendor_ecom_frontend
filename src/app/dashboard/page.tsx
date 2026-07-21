@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Package, Pencil, Plus, Trash2 } from "lucide-react";
+import { Package, Pencil, Plus, Store, Trash2 } from "lucide-react";
 import { RequireAuth } from "@/components/guards/require-auth";
 import { useAuth } from "@/hooks/use-auth";
 import { deleteProduct, listProducts } from "@/lib/api/products";
@@ -70,10 +70,13 @@ function DashboardContent() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 rounded-[2rem] border border-stone-200/70 bg-white/76 p-6 shadow-sm shadow-stone-950/5 backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-stone-800 dark:bg-stone-900/68">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">My products</h1>
-          <p className="mt-1 text-sm text-slate-500">Manage the products you have listed for sale.</p>
+          <span className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-teal-700 text-white dark:bg-amber-400 dark:text-stone-950">
+            <Store className="size-5" />
+          </span>
+          <h1 className="text-3xl font-black tracking-tight text-stone-950 dark:text-white">My products</h1>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">Manage the products you have listed for sale.</p>
         </div>
         <Link href="/dashboard/new">
           <Button>
@@ -100,31 +103,31 @@ function DashboardContent() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/50">
+        <div className="overflow-x-auto rounded-3xl border border-stone-200/70 bg-white/84 shadow-xl shadow-stone-950/8 backdrop-blur dark:border-stone-800 dark:bg-stone-900/78">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-[0.14em] text-stone-500 dark:border-stone-800 dark:bg-stone-950/40">
               <tr>
-                <th className="px-5 py-3 font-medium">Product</th>
-                <th className="px-5 py-3 font-medium">Category</th>
-                <th className="px-5 py-3 font-medium">Price</th>
-                <th className="px-5 py-3 font-medium">Stock</th>
-                <th className="px-5 py-3 font-medium text-right">Actions</th>
+                <th className="px-5 py-3 font-bold">Product</th>
+                <th className="px-5 py-3 font-bold">Category</th>
+                <th className="px-5 py-3 font-bold">Price</th>
+                <th className="px-5 py-3 font-bold">Stock</th>
+                <th className="px-5 py-3 font-bold text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
               {myProducts.map((p) => (
-                <tr key={p.id} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                  <td className="px-5 py-3 font-medium text-slate-800 dark:text-slate-100">
-                    <Link href={`/products/${p.id}`} className="hover:text-indigo-600">
+                <tr key={p.id} className="transition-colors hover:bg-stone-50/80 dark:hover:bg-stone-800/40">
+                  <td className="px-5 py-4 font-bold text-stone-800 dark:text-stone-100">
+                    <Link href={`/products/${p.id}`} className="hover:text-teal-700 dark:hover:text-amber-300">
                       {p.name}
                     </Link>
                   </td>
-                  <td className="px-5 py-3 text-slate-500">{categoryMap.get(p.categoryId) ?? "—"}</td>
-                  <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{formatPrice(p.price)}</td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-4 text-stone-500">{categoryMap.get(p.categoryId) ?? "-"}</td>
+                  <td className="px-5 py-4 font-semibold text-stone-700 dark:text-stone-300">{formatPrice(p.price)}</td>
+                  <td className="px-5 py-4">
                     {p.stock <= 0 ? <Badge tone="danger">Out of stock</Badge> : <Badge tone="success">{p.stock}</Badge>}
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-4">
                     <div className="flex justify-end gap-2">
                       <Link href={`/dashboard/${p.id}/edit`}>
                         <Button variant="outline" size="sm">

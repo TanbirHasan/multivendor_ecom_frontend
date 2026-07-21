@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Marketa — Multi-Vendor Marketplace",
+  title: "Marketa - Multi-Vendor Marketplace",
   description: "Browse products from independent sellers, or start selling your own.",
 };
 

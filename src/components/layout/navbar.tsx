@@ -25,33 +25,33 @@ export function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/80">
+    <header className="sticky top-0 z-40 border-b border-stone-200/70 bg-white/78 shadow-sm shadow-stone-950/5 backdrop-blur-xl dark:border-stone-800 dark:bg-stone-950/78">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
+          <Link href="/" className="flex items-center gap-2 text-lg font-black tracking-tight text-stone-950 dark:text-white">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-stone-950 text-amber-300 shadow-sm shadow-stone-950/20 dark:bg-amber-400 dark:text-stone-950">
               <ShoppingBag className="size-4.5" />
             </span>
             Marketa
           </Link>
-          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-300 md:flex">
-            <Link href="/" className="transition-colors hover:text-indigo-600">
+          <nav className="hidden items-center gap-1 rounded-full border border-stone-200/70 bg-white/55 p-1 text-sm font-semibold text-stone-600 shadow-sm shadow-stone-950/5 dark:border-stone-800 dark:bg-stone-900/55 dark:text-stone-300 md:flex">
+            <Link href="/" className="rounded-full px-3 py-1.5 transition-colors hover:bg-stone-950 hover:text-white dark:hover:bg-white dark:hover:text-stone-950">
               Products
             </Link>
-            <Link href="/categories" className="transition-colors hover:text-indigo-600">
+            <Link href="/categories" className="rounded-full px-3 py-1.5 transition-colors hover:bg-stone-950 hover:text-white dark:hover:bg-white dark:hover:text-stone-950">
               Categories
             </Link>
             {user?.role === "SELLER" && (
-              <Link href="/dashboard" className="transition-colors hover:text-indigo-600">
+              <Link href="/dashboard" className="rounded-full px-3 py-1.5 transition-colors hover:bg-stone-950 hover:text-white dark:hover:bg-white dark:hover:text-stone-950">
                 My Products
               </Link>
             )}
             {user?.role === "ADMIN" && (
               <>
-                <Link href="/admin/categories" className="transition-colors hover:text-indigo-600">
+                <Link href="/admin/categories" className="rounded-full px-3 py-1.5 transition-colors hover:bg-stone-950 hover:text-white dark:hover:bg-white dark:hover:text-stone-950">
                   Manage Categories
                 </Link>
-                <Link href="/admin/users" className="transition-colors hover:text-indigo-600">
+                <Link href="/admin/users" className="rounded-full px-3 py-1.5 transition-colors hover:bg-stone-950 hover:text-white dark:hover:bg-white dark:hover:text-stone-950">
                   Manage Users
                 </Link>
               </>
@@ -61,22 +61,22 @@ export function Navbar() {
 
         <div className="hidden items-center gap-3 md:flex">
           {isInitializing ? (
-            <div className="h-9 w-24 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+            <div className="h-9 w-24 animate-pulse rounded-full bg-stone-100 dark:bg-stone-800" />
           ) : isAuthenticated && user ? (
             <div className="flex items-center gap-3">
               <RoleBadge role={user.role} />
               <Link
                 href="/profile"
-                className="flex items-center gap-2 rounded-full border border-slate-200 py-1 pl-1 pr-3 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-200"
+                className="flex items-center gap-2 rounded-full border border-stone-200 bg-white/65 py-1 pl-1 pr-3 text-sm font-semibold text-stone-700 shadow-sm shadow-stone-950/5 transition-colors hover:border-teal-300 hover:text-teal-700 dark:border-stone-700 dark:bg-stone-900/60 dark:text-stone-200 dark:hover:text-amber-300"
               >
-                <span className="flex size-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+                <span className="flex size-7 items-center justify-center rounded-full bg-teal-700 text-xs font-semibold text-white dark:bg-amber-400 dark:text-stone-950">
                   {initials(user.name)}
                 </span>
                 {user.name}
               </Link>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-stone-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
               >
                 <LogOut className="size-4" />
                 Logout
@@ -84,10 +84,10 @@ export function Navbar() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Link href="/login" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:text-indigo-600 dark:text-slate-300">
+              <Link href="/login" className="rounded-xl px-3 py-2 text-sm font-semibold text-stone-600 hover:text-teal-700 dark:text-stone-300 dark:hover:text-amber-300">
                 Log in
               </Link>
-              <Link href="/register" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-500">
+              <Link href="/register" className="rounded-xl bg-stone-950 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-stone-950/20 transition-colors hover:bg-stone-800 dark:bg-amber-400 dark:text-stone-950 dark:hover:bg-amber-300">
                 Sign up
               </Link>
             </div>
@@ -95,7 +95,7 @@ export function Navbar() {
         </div>
 
         <button
-          className="rounded-lg p-2 text-slate-600 md:hidden dark:text-slate-300"
+          className="rounded-xl p-2 text-stone-600 hover:bg-stone-900/5 md:hidden dark:text-stone-300 dark:hover:bg-white/10"
           onClick={() => setMobileOpen((v) => !v)}
           aria-label="Toggle menu"
         >
@@ -104,8 +104,8 @@ export function Navbar() {
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-slate-200 px-4 py-4 md:hidden dark:border-slate-800">
-          <div className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <div className="border-t border-stone-200/70 bg-white/80 px-4 py-4 shadow-lg shadow-stone-950/5 backdrop-blur md:hidden dark:border-stone-800 dark:bg-stone-950/90">
+          <div className="flex flex-col gap-1 text-sm font-semibold text-stone-700 dark:text-stone-200">
             <MobileLink href="/" icon={LayoutGrid} label="Products" onClick={() => setMobileOpen(false)} />
             <MobileLink href="/categories" icon={Package} label="Categories" onClick={() => setMobileOpen(false)} />
             {user?.role === "SELLER" && (
@@ -117,7 +117,7 @@ export function Navbar() {
                 <MobileLink href="/admin/users" icon={Shield} label="Manage Users" onClick={() => setMobileOpen(false)} />
               </>
             )}
-            <div className="my-2 border-t border-slate-200 dark:border-slate-800" />
+            <div className="my-2 border-t border-stone-200 dark:border-stone-800" />
             {isAuthenticated && user ? (
               <>
                 <MobileLink href="/profile" icon={User} label={user.name} onClick={() => setMobileOpen(false)} />
@@ -126,7 +126,7 @@ export function Navbar() {
                     setMobileOpen(false);
                     handleLogout();
                   }}
-                  className="flex items-center gap-2 rounded-lg px-2 py-2 text-left text-red-600"
+                  className="flex items-center gap-2 rounded-xl px-2 py-2 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
                 >
                   <LogOut className="size-4" /> Logout
                 </button>
@@ -156,7 +156,7 @@ function MobileLink({
   onClick: () => void;
 }) {
   return (
-    <Link href={href} onClick={onClick} className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">
+    <Link href={href} onClick={onClick} className="flex items-center gap-2 rounded-xl px-2 py-2 hover:bg-stone-900/5 dark:hover:bg-white/10">
       <Icon className="size-4" />
       {label}
     </Link>

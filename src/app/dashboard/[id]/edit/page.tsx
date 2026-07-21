@@ -4,7 +4,7 @@ import { useEffect, useState, use as usePromise } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { RequireAuth } from "@/components/guards/require-auth";
 import { ProductForm } from "@/components/products/product-form";
 import { getProduct, updateProduct } from "@/lib/api/products";
@@ -77,15 +77,20 @@ function EditProductContent({ id }: { id: string }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href={`/products/${id}`} className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-indigo-600">
+    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+      <Link href={`/products/${id}`} className="mb-6 inline-flex items-center gap-1.5 text-sm font-bold text-stone-500 hover:text-teal-700 dark:text-stone-400 dark:hover:text-amber-300">
         <ArrowLeft className="size-4" />
         Back to product
       </Link>
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900 dark:text-white">Edit product</h1>
-      <p className="mb-8 text-sm text-slate-500">Update the details for {product.name}.</p>
+      <div className="mb-8 rounded-[2rem] border border-stone-200/70 bg-white/76 p-6 shadow-sm shadow-stone-950/5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/68">
+        <span className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-teal-700 text-white dark:bg-amber-400 dark:text-stone-950">
+          <Pencil className="size-5" />
+        </span>
+        <h1 className="text-3xl font-black tracking-tight text-stone-950 dark:text-white">Edit product</h1>
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">Update the details for {product.name}.</p>
+      </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="rounded-3xl border border-stone-200/70 bg-white/84 p-6 shadow-xl shadow-stone-950/8 backdrop-blur dark:border-stone-800 dark:bg-stone-900/78">
         <ProductForm
           categories={categories}
           initialValues={{

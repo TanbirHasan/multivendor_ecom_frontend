@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, PackagePlus } from "lucide-react";
 import { RequireAuth } from "@/components/guards/require-auth";
 import { ProductForm } from "@/components/products/product-form";
 import { createProduct } from "@/lib/api/products";
@@ -47,22 +47,27 @@ function NewProductContent() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/dashboard" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-indigo-600">
+    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+      <Link href="/dashboard" className="mb-6 inline-flex items-center gap-1.5 text-sm font-bold text-stone-500 hover:text-teal-700 dark:text-stone-400 dark:hover:text-amber-300">
         <ArrowLeft className="size-4" />
         Back to my products
       </Link>
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900 dark:text-white">Add a product</h1>
-      <p className="mb-8 text-sm text-slate-500">Fill in the details below to list a new product.</p>
+      <div className="mb-8 rounded-[2rem] border border-stone-200/70 bg-white/76 p-6 shadow-sm shadow-stone-950/5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/68">
+        <span className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-teal-700 text-white dark:bg-amber-400 dark:text-stone-950">
+          <PackagePlus className="size-5" />
+        </span>
+        <h1 className="text-3xl font-black tracking-tight text-stone-950 dark:text-white">Add a product</h1>
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">Fill in the details below to list a new product.</p>
+      </div>
 
       {isLoading ? (
         <PageSpinner />
       ) : categories.length === 0 ? (
-        <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-300">
           No categories exist yet. Ask an admin to create one before listing products.
         </p>
       ) : (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-3xl border border-stone-200/70 bg-white/84 p-6 shadow-xl shadow-stone-950/8 backdrop-blur dark:border-stone-800 dark:bg-stone-900/78">
           <ProductForm categories={categories} submitLabel="Create product" isSubmitting={isSubmitting} onSubmit={handleSubmit} />
         </div>
       )}

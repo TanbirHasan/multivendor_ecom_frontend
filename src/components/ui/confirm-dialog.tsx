@@ -37,13 +37,13 @@ export function ConfirmDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900">
-        <div className="flex size-11 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/15">
+      <div className="absolute inset-0 bg-stone-950/55 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative w-full max-w-sm rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl shadow-stone-950/20 dark:border-stone-800 dark:bg-stone-900">
+        <div className="flex size-11 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-500/15">
           <AlertTriangle className="size-5 text-red-600 dark:text-red-400" />
         </div>
-        <h3 className="mt-4 text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
-        {description && <p className="mt-1.5 text-sm text-slate-500">{description}</p>}
+        <h3 className="mt-4 text-base font-bold text-stone-950 dark:text-stone-100">{title}</h3>
+        {description && <p className="mt-1.5 text-sm text-stone-500 dark:text-stone-400">{description}</p>}
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="outline" onClick={onCancel} disabled={isLoading}>
             Cancel

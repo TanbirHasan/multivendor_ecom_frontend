@@ -38,7 +38,7 @@ export function ProductForm({ categories, initialValues, submitLabel, isSubmitti
   function validate(): boolean {
     const next: typeof errors = {};
     if (values.name.trim().length < 2 || values.name.trim().length > 150) {
-      next.name = "Name must be 2–150 characters";
+      next.name = "Name must be 2-150 characters";
     }
     if (!values.description.trim()) {
       next.description = "Description is required";
@@ -71,7 +71,7 @@ export function ProductForm({ categories, initialValues, submitLabel, isSubmitti
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <Input
         id="name"
         label="Product name"
@@ -86,9 +86,9 @@ export function ProductForm({ categories, initialValues, submitLabel, isSubmitti
         value={values.description}
         onChange={(e) => update("description", e.target.value)}
         error={errors.description}
-        placeholder="Describe the product…"
+        placeholder="Describe the product..."
       />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input
           id="price"
           label="Price (USD)"
