@@ -3,11 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { LayoutGrid, LogOut, Menu, Package, Shield, ShoppingBag, User, X } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, LogOut, Menu, Package, ShoppingBag, User, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { RoleBadge } from "@/components/ui/badge";
 import { initials } from "@/lib/utils";
+import { dashboardPathForRole } from "@/lib/roles";
 import toast from "react-hot-toast";
+
+const DASHBOARD_LABEL = {
+  ADMIN: "Admin Console",
+  SELLER: "Seller Dashboard",
+  BUYER: "My Dashboard",
+} as const;
 
 export function Navbar() {
   const { user, isAuthenticated, isInitializing, logout } = useAuth();
@@ -23,6 +30,9 @@ export function Navbar() {
       toast.error("Logout failed");
     }
   }
+
+  const dashboardHref = user ? dashboardPathForRole(user.role) : null;
+  const dashboardLabel = user ? DASHBOARD_LABEL[user.role] : null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-stone-200/70 bg-white/78 shadow-sm shadow-stone-950/5 backdrop-blur-xl dark:border-stone-800 dark:bg-stone-950/78">
@@ -41,20 +51,10 @@ export function Navbar() {
             <Link href="/categories" className="rounded-full px-3 py-1.5 transition-colors hover:bg-stone-950 hover:text-white dark:hover:bg-white dark:hover:text-stone-950">
               Categories
             </Link>
-            {user?.role === "SELLER" && (
-              <Link href="/dashboard" className="rounded-full px-3 py-1.5 transition-colors hover:bg-stone-950 hover:text-white dark:hover:bg-white dark:hover:text-stone-950">
-                My Products
+            {dashboardHref && dashboardLabel && (
+              <Link href={dashboardHref} className="rounded-full px-3 py-1.5 transition-colors hover:bg-stone-950 hover:text-white dark:hover:bg-white dark:hover:text-stone-950">
+                {dashboardLabel}
               </Link>
-            )}
-            {user?.role === "ADMIN" && (
-              <>
-                <Link href="/admin/categories" className="rounded-full px-3 py-1.5 transition-colors hover:bg-stone-950 hover:text-white dark:hover:bg-white dark:hover:text-stone-950">
-                  Manage Categories
-                </Link>
-                <Link href="/admin/users" className="rounded-full px-3 py-1.5 transition-colors hover:bg-stone-950 hover:text-white dark:hover:bg-white dark:hover:text-stone-950">
-                  Manage Users
-                </Link>
-              </>
             )}
           </nav>
         </div>
@@ -108,14 +108,8 @@ export function Navbar() {
           <div className="flex flex-col gap-1 text-sm font-semibold text-stone-700 dark:text-stone-200">
             <MobileLink href="/" icon={LayoutGrid} label="Products" onClick={() => setMobileOpen(false)} />
             <MobileLink href="/categories" icon={Package} label="Categories" onClick={() => setMobileOpen(false)} />
-            {user?.role === "SELLER" && (
-              <MobileLink href="/dashboard" icon={Package} label="My Products" onClick={() => setMobileOpen(false)} />
-            )}
-            {user?.role === "ADMIN" && (
-              <>
-                <MobileLink href="/admin/categories" icon={Shield} label="Manage Categories" onClick={() => setMobileOpen(false)} />
-                <MobileLink href="/admin/users" icon={Shield} label="Manage Users" onClick={() => setMobileOpen(false)} />
-              </>
+            {dashboardHref && dashboardLabel && (
+              <MobileLink href={dashboardHref} icon={LayoutDashboard} label={dashboardLabel} onClick={() => setMobileOpen(false)} />
             )}
             <div className="my-2 border-t border-stone-200 dark:border-stone-800" />
             {isAuthenticated && user ? (

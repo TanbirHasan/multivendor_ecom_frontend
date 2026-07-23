@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { extractErrorMessage } from "@/lib/api/client";
+import { dashboardPathForRole } from "@/lib/roles";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -25,7 +26,7 @@ export default function LoginPage() {
     try {
       const { user } = await login({ email, password });
       toast.success(`Welcome back, ${user.name}`);
-      router.push("/");
+      router.push(dashboardPathForRole(user.role));
     } catch (err) {
       setError(extractErrorMessage(err, "Invalid credentials"));
     } finally {

@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Package, Pencil, Plus, Store, Trash2 } from "lucide-react";
-import { RequireAuth } from "@/components/guards/require-auth";
+import { Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { deleteProduct, listProducts } from "@/lib/api/products";
 import { listCategories } from "@/lib/api/categories";
@@ -17,15 +16,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatPrice } from "@/lib/utils";
 import { extractErrorMessage } from "@/lib/api/client";
 
-export default function DashboardPage() {
-  return (
-    <RequireAuth roles={["SELLER"]}>
-      <DashboardContent />
-    </RequireAuth>
-  );
-}
-
-function DashboardContent() {
+export default function SellerProductsPage() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -69,16 +60,13 @@ function DashboardContent() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <div>
       <div className="mb-8 flex flex-col gap-4 rounded-[2rem] border border-stone-200/70 bg-white/76 p-6 shadow-sm shadow-stone-950/5 backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-stone-800 dark:bg-stone-900/68">
         <div>
-          <span className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-teal-700 text-white dark:bg-amber-400 dark:text-stone-950">
-            <Store className="size-5" />
-          </span>
-          <h1 className="text-3xl font-black tracking-tight text-stone-950 dark:text-white">My products</h1>
+          <h1 className="text-2xl font-black tracking-tight text-stone-950 dark:text-white">My products</h1>
           <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">Manage the products you have listed for sale.</p>
         </div>
-        <Link href="/dashboard/new">
+        <Link href="/seller/products/new">
           <Button>
             <Plus className="size-4" />
             Add product
@@ -94,7 +82,7 @@ function DashboardContent() {
           title="No products yet"
           description="List your first product to start selling."
           action={
-            <Link href="/dashboard/new">
+            <Link href="/seller/products/new">
               <Button size="sm">
                 <Plus className="size-4" />
                 Add product
@@ -122,14 +110,14 @@ function DashboardContent() {
                       {p.name}
                     </Link>
                   </td>
-                  <td className="px-5 py-4 text-stone-500">{categoryMap.get(p.categoryId) ?? "-"}</td>
+                  <td className="px-5 py-4 text-stone-500">{categoryMap.get(p.categoryId) ?? "—"}</td>
                   <td className="px-5 py-4 font-semibold text-stone-700 dark:text-stone-300">{formatPrice(p.price)}</td>
                   <td className="px-5 py-4">
                     {p.stock <= 0 ? <Badge tone="danger">Out of stock</Badge> : <Badge tone="success">{p.stock}</Badge>}
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex justify-end gap-2">
-                      <Link href={`/dashboard/${p.id}/edit`}>
+                      <Link href={`/products/${p.id}/edit`}>
                         <Button variant="outline" size="sm">
                           <Pencil className="size-3.5" />
                         </Button>

@@ -3,7 +3,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import toast from "react-hot-toast";
 import { Layers, Pencil, Plus, Trash2, X } from "lucide-react";
-import { RequireAuth } from "@/components/guards/require-auth";
 import { createCategory, deleteCategory, listCategories, updateCategory } from "@/lib/api/categories";
 import type { Category } from "@/lib/types";
 import { PageSpinner } from "@/components/ui/spinner";
@@ -15,14 +14,6 @@ import { formatDate } from "@/lib/utils";
 import { extractErrorMessage } from "@/lib/api/client";
 
 export default function AdminCategoriesPage() {
-  return (
-    <RequireAuth roles={["ADMIN"]}>
-      <AdminCategoriesContent />
-    </RequireAuth>
-  );
-}
-
-function AdminCategoriesContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newName, setNewName] = useState("");

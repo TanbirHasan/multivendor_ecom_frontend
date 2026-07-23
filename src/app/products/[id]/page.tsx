@@ -57,7 +57,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     try {
       await deleteProduct(product.id);
       toast.success("Product deleted");
-      router.push(user?.role === "SELLER" ? "/dashboard" : "/");
+      router.push(user?.role === "SELLER" ? "/seller/products" : user?.role === "ADMIN" ? "/admin/products" : "/");
     } catch (err) {
       toast.error(extractErrorMessage(err, "Could not delete product"));
     } finally {
@@ -127,7 +127,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
           {canManage && (
             <div className="mt-8 flex flex-wrap gap-3 border-t border-stone-200 pt-6 dark:border-stone-800">
-              <Link href={`/dashboard/${product.id}/edit`}>
+              <Link href={`/products/${product.id}/edit`}>
                 <Button variant="outline">
                   <Pencil className="size-4" />
                   Edit

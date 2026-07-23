@@ -70,8 +70,8 @@ function EditProductContent({ id }: { id: string }) {
   if (forbidden || !product) {
     return (
       <div className="mx-auto flex max-w-lg flex-1 flex-col items-center justify-center px-4 py-24 text-center">
-        <p className="text-lg font-semibold text-slate-900 dark:text-white">You can&apos;t edit this product</p>
-        <p className="mt-1 text-sm text-slate-500">Only the product&apos;s seller or an admin can make changes.</p>
+        <p className="text-lg font-bold text-stone-950 dark:text-white">You can&apos;t edit this product</p>
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">Only the product&apos;s seller or an admin can make changes.</p>
       </div>
     );
   }

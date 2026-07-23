@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { ArrowLeft, PackagePlus } from "lucide-react";
-import { RequireAuth } from "@/components/guards/require-auth";
 import { ProductForm } from "@/components/products/product-form";
 import { createProduct } from "@/lib/api/products";
 import { listCategories } from "@/lib/api/categories";
@@ -14,14 +13,6 @@ import { PageSpinner } from "@/components/ui/spinner";
 import { extractErrorMessage } from "@/lib/api/client";
 
 export default function NewProductPage() {
-  return (
-    <RequireAuth roles={["SELLER"]}>
-      <NewProductContent />
-    </RequireAuth>
-  );
-}
-
-function NewProductContent() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +29,7 @@ function NewProductContent() {
     try {
       await createProduct(payload);
       toast.success("Product created");
-      router.push("/dashboard");
+      router.push("/seller/products");
     } catch (err) {
       toast.error(extractErrorMessage(err, "Could not create product"));
     } finally {
@@ -47,8 +38,8 @@ function NewProductContent() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/dashboard" className="mb-6 inline-flex items-center gap-1.5 text-sm font-bold text-stone-500 hover:text-teal-700 dark:text-stone-400 dark:hover:text-amber-300">
+    <div>
+      <Link href="/seller/products" className="mb-6 inline-flex items-center gap-1.5 text-sm font-bold text-stone-500 hover:text-teal-700 dark:text-stone-400 dark:hover:text-amber-300">
         <ArrowLeft className="size-4" />
         Back to my products
       </Link>

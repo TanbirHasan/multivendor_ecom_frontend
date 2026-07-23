@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Input, Select } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { extractErrorMessage } from "@/lib/api/client";
+import { dashboardPathForRole } from "@/lib/roles";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -37,7 +38,7 @@ export default function RegisterPage() {
     try {
       const { user } = await register({ name, email, password, role });
       toast.success(`Welcome to Marketa, ${user.name}`);
-      router.push("/");
+      router.push(dashboardPathForRole(user.role));
     } catch (err) {
       setError(extractErrorMessage(err, "Could not create account"));
     } finally {
