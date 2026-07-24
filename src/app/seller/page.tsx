@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Boxes, DollarSign, PackagePlus, PackageSearch } from "lucide-react";
+import { AlertTriangle, Boxes, Clock3, DollarSign, PackagePlus, PackageSearch } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { listProducts } from "@/lib/api/products";
 import { listCategories } from "@/lib/api/categories";
-import type { Category, Product } from "@/lib/types";
+import { listSellerItems } from "@/lib/api/orders";
+import type { Category, OrderItem, Product } from "@/lib/types";
 import { PageSpinner } from "@/components/ui/spinner";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Button } from "@/components/ui/button";
@@ -17,15 +18,21 @@ export default function SellerOverviewPage() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [soldItems, setSoldItems] = useState<OrderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       setIsLoading(true);
       try {
-        const [productsData, categoriesData] = await Promise.all([listProducts(), listCategories()]);
+        const [productsData, categoriesData, soldItemsData] = await Promise.all([
+          listProducts(),
+          listCategories(),
+          listSellerItems(),
+        ]);
         setProducts(productsData);
         setCategories(categoriesData);
+        setSoldItems(soldItemsData);
       } finally {
         setIsLoading(false);
       }
@@ -41,6 +48,10 @@ export default function SellerOverviewPage() {
     [myProducts]
   );
   const totalUnits = useMemo(() => myProducts.reduce((sum, p) => sum + p.stock, 0), [myProducts]);
+  const itemsToFulfill = useMemo(
+    () => soldItems.filter((i) => i.status === "PENDING" || i.status === "SHIPPED").length,
+    [soldItems]
+  );
 
   if (isLoading) return <PageSpinner label="Loading your shop…" />;
 
@@ -59,12 +70,26 @@ export default function SellerOverviewPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Listed products" value={myProducts.length} icon={PackageSearch} />
         <StatCard label="Units in stock" value={totalUnits} icon={Boxes} />
         <StatCard label="Out of stock" value={outOfStock.length} icon={AlertTriangle} tone={outOfStock.length > 0 ? "warning" : "default"} />
+        <StatCard label="Items to fulfill" value={itemsToFulfill} icon={Clock3} tone={itemsToFulfill > 0 ? "warning" : "default"} />
         <StatCard label="Inventory value" value={formatPrice(inventoryValue)} icon={DollarSign} tone="success" />
       </div>
+
+      {soldItems.length > 0 && (
+        <Link
+          href="/seller/orders"
+          className="flex items-center justify-between rounded-3xl border border-teal-200/70 bg-teal-50/70 p-5 text-sm font-semibold text-teal-900 transition-colors hover:bg-teal-50 dark:border-teal-400/15 dark:bg-teal-500/10 dark:text-teal-200"
+        >
+          <span>
+            You&apos;ve sold {soldItems.length} item{soldItems.length === 1 ? "" : "s"} — {itemsToFulfill} still need
+            fulfillment.
+          </span>
+          <span className="underline underline-offset-2">View orders</span>
+        </Link>
+      )}
 
       {myProducts.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-stone-300/80 bg-white/55 p-10 text-center shadow-sm shadow-stone-950/5 backdrop-blur dark:border-stone-700 dark:bg-stone-900/45">

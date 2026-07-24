@@ -2,34 +2,39 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Layers, Package, ShieldCheck, Store, Users } from "lucide-react";
+import { AlertTriangle, Layers, Package, Receipt, ShieldCheck, Store, Users, Wallet } from "lucide-react";
 import { listUsers } from "@/lib/api/users";
 import { listCategories } from "@/lib/api/categories";
 import { listProducts } from "@/lib/api/products";
-import type { Category, Product, User } from "@/lib/types";
+import { listAllOrdersAdmin } from "@/lib/api/orders";
+import type { Category, Order, Product, User } from "@/lib/types";
 import { PageSpinner } from "@/components/ui/spinner";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { RoleBadge } from "@/components/ui/badge";
+import { RoleBadge, Badge } from "@/components/ui/badge";
 import { formatDate, formatPrice, initials } from "@/lib/utils";
+import { orderStatusTone } from "@/lib/order-status";
 
 export default function AdminOverviewPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       setIsLoading(true);
       try {
-        const [usersData, categoriesData, productsData] = await Promise.all([
+        const [usersData, categoriesData, productsData, ordersData] = await Promise.all([
           listUsers(),
           listCategories(),
           listProducts(),
+          listAllOrdersAdmin(),
         ]);
         setUsers(usersData);
         setCategories(categoriesData);
         setProducts(productsData);
+        setOrders(ordersData);
       } finally {
         setIsLoading(false);
       }
@@ -40,10 +45,19 @@ export default function AdminOverviewPage() {
   const sellerCount = useMemo(() => users.filter((u) => u.role === "SELLER").length, [users]);
   const buyerCount = useMemo(() => users.filter((u) => u.role === "BUYER").length, [users]);
   const outOfStockCount = useMemo(() => products.filter((p) => p.stock <= 0).length, [products]);
+  const totalRevenue = useMemo(
+    () => orders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0),
+    [orders]
+  );
   const recentUsers = useMemo(
     () => [...users].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5),
     [users]
   );
+  const recentOrders = useMemo(
+    () => [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5),
+    [orders]
+  );
+  const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
 
   if (isLoading) return <PageSpinner label="Loading overview…" />;
 
@@ -54,12 +68,14 @@ export default function AdminOverviewPage() {
         <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">A snapshot of the marketplace right now.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
         <StatCard label="Total users" value={users.length} icon={Users} />
         <StatCard label="Sellers" value={sellerCount} icon={Store} />
         <StatCard label="Buyers" value={buyerCount} icon={ShieldCheck} />
         <StatCard label="Categories" value={categories.length} icon={Layers} />
         <StatCard label="Products" value={products.length} icon={Package} />
+        <StatCard label="Orders" value={orders.length} icon={Receipt} />
+        <StatCard label="Revenue" value={formatPrice(totalRevenue)} icon={Wallet} tone="success" />
       </div>
 
       {outOfStockCount > 0 && (
@@ -103,6 +119,36 @@ export default function AdminOverviewPage() {
           </ul>
         )}
       </div>
+
+      {orders.length > 0 && (
+        <div className="rounded-3xl border border-stone-200/70 bg-white/84 shadow-xl shadow-stone-950/8 backdrop-blur dark:border-stone-800 dark:bg-stone-900/78">
+          <div className="flex items-center justify-between border-b border-stone-200 px-5 py-4 dark:border-stone-800">
+            <h3 className="font-bold text-stone-900 dark:text-stone-100">Recent orders</h3>
+            <Link href="/admin/orders" className="text-sm font-semibold text-teal-700 hover:text-teal-600 dark:text-amber-300">
+              View all
+            </Link>
+          </div>
+          <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+            {recentOrders.map((o) => {
+              const buyer = userMap.get(o.buyerId);
+              return (
+                <li key={o.id}>
+                  <Link href={`/orders/${o.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-stone-50/80 dark:hover:bg-stone-800/40">
+                    <div>
+                      <p className="font-bold text-stone-800 dark:text-stone-100">#{o.id.slice(-8).toUpperCase()}</p>
+                      <p className="text-xs font-medium text-stone-400">{buyer?.name ?? "Unknown buyer"} · {formatDate(o.createdAt)}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge tone={orderStatusTone(o.status)}>{o.status}</Badge>
+                      <span className="font-semibold text-stone-700 dark:text-stone-300">{formatPrice(o.totalAmount)}</span>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {products.length > 0 && (
         <div className="rounded-3xl border border-stone-200/70 bg-white/84 shadow-xl shadow-stone-950/8 backdrop-blur dark:border-stone-800 dark:bg-stone-900/78">

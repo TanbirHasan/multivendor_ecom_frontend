@@ -14,6 +14,7 @@ import { PageSpinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { AddToCart } from "@/components/cart/add-to-cart";
 import { extractErrorMessage } from "@/lib/api/client";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -119,6 +120,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           <div className="mt-8 rounded-3xl border border-stone-200/70 bg-stone-50/70 p-5 dark:border-stone-800 dark:bg-stone-950/35">
             <p className="whitespace-pre-line leading-7 text-stone-600 dark:text-stone-300">{product.description}</p>
           </div>
+
+          {!canManage && !outOfStock && (
+            <div className="mt-8 border-t border-stone-200 pt-6 dark:border-stone-800">
+              <AddToCart product={product} />
+            </div>
+          )}
 
           <div className="mt-6 flex items-start gap-3 rounded-3xl border border-teal-200/70 bg-teal-50/70 p-4 text-sm text-teal-900 dark:border-teal-400/15 dark:bg-teal-500/10 dark:text-teal-200">
             <ShieldCheck className="mt-0.5 size-5 shrink-0" />

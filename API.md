@@ -1,7 +1,7 @@
 # Multi-Vendor Marketplace Backend — API Reference
 
-Status: Phase 1 (Foundation) + Phase 2 (Auth & RBAC) complete. No `Order`/`Payment`/`Review`
-endpoints exist yet — those belong to later phases.
+Status: Phase 1 (Foundation), Phase 2 (Auth & RBAC), and Phase 3 (Multi-vendor order logic)
+complete. No `Payment`/`Review` endpoints exist yet — those belong to Phase 4/5.
 
 This document is written for building a frontend client (e.g. Next.js) against the API
 as it exists right now. It reflects only what is actually implemented and tested.
@@ -27,12 +27,14 @@ auth with `BUYER`/`SELLER`/`ADMIN` roles. A Next.js frontend is the next thing b
 — initially just as a way to exercise these endpoints by hand, rather than a full product
 build.
 
-**Where things stand:** Phase 1 (Foundation — schema + layered CRUD pattern) and Phase 2
-(Auth & RBAC — JWT, refresh tokens, role enforcement on every endpoint below) are complete
-and manually tested against their permission boundaries. Phase 3 (multi-vendor order
-logic), Phase 4 (payments), Phase 5 (reviews/search), and Phase 6 (production hardening)
-haven't started yet — nothing below covers `Order`, `Payment`, or `Review`, because those
-tables don't exist yet.
+**Where things stand:** Phase 1 (Foundation — schema + layered CRUD pattern), Phase 2
+(Auth & RBAC — JWT, refresh tokens, role enforcement), and Phase 3 (multi-vendor order
+logic — checkout, buyer/seller order views, fulfillment status, concurrency-safe stock)
+are all complete and manually tested against their permission boundaries, including a
+real concurrency stress test (8 simultaneous checkout requests against a single unit of
+stock — exactly one succeeded, never oversold). Phase 4 (payments), Phase 5
+(reviews/search), and Phase 6 (production hardening) haven't started yet — nothing below
+covers `Payment` or `Review`, because those tables don't exist yet.
 
 ---
 
@@ -121,7 +123,6 @@ that).
 Public. Creates a `BUYER` or `SELLER` account (never `ADMIN`).
 
 **Body:**
-
 ```json
 {
   "name": "Alice Seller",
@@ -130,7 +131,6 @@ Public. Creates a `BUYER` or `SELLER` account (never `ADMIN`).
   "role": "SELLER"
 }
 ```
-
 - `name`: string, 2–100 chars
 - `email`: valid email, must be unique
 - `password`: string, min 8 chars
@@ -138,21 +138,15 @@ Public. Creates a `BUYER` or `SELLER` account (never `ADMIN`).
   validation (400) before it ever reaches the database
 
 **Success — `201`:**
-
 ```json
 {
   "user": {
-    "id": "cmrs...",
-    "name": "Alice Seller",
-    "email": "alice@example.com",
-    "role": "SELLER",
-    "createdAt": "...",
-    "updatedAt": "..."
+    "id": "cmrs...", "name": "Alice Seller", "email": "alice@example.com",
+    "role": "SELLER", "createdAt": "...", "updatedAt": "..."
   },
   "accessToken": "eyJhbGciOi..."
 }
 ```
-
 Also sets the `refresh_token` cookie.
 
 **Failure cases:** `409` email already registered · `400` validation (weak password,
@@ -196,29 +190,24 @@ present — this is idempotent, no error if it's already gone), clears the cooki
 
 All routes require `Authorization: Bearer <accessToken>`.
 
-| Method | Path             | Who                      | Behavior                                                                  |
-| ------ | ---------------- | ------------------------ | ------------------------------------------------------------------------- |
-| GET    | `/api/users`     | `ADMIN` only             | List all users (password never included)                                  |
-| GET    | `/api/users/:id` | account owner or `ADMIN` | View one user                                                             |
-| PUT    | `/api/users/:id` | account owner or `ADMIN` | Update `name`/`email`; `role` field only accepted if requester is `ADMIN` |
-| DELETE | `/api/users/:id` | `ADMIN` only             | Delete a user                                                             |
+| Method | Path | Who | Behavior |
+|---|---|---|---|
+| GET | `/api/users` | `ADMIN` only | List all users (password never included) |
+| GET | `/api/users/:id` | account owner or `ADMIN` | View one user |
+| PUT | `/api/users/:id` | account owner or `ADMIN` | Update `name`/`email`; `role` field only accepted if requester is `ADMIN` |
+| DELETE | `/api/users/:id` | `ADMIN` only | Delete a user |
 
 ### `GET /api/users`
-
 `403` for any non-`ADMIN` caller. `200` → array of `{ id, name, email, role, createdAt, updatedAt }` (no `password` field, ever).
 
 ### `GET /api/users/:id`
-
 `403` if caller is neither the account owner nor `ADMIN`. `404` if the id doesn't exist. `200` → single user object (same shape as above).
 
 ### `PUT /api/users/:id`
-
 **Body (all optional, at least one required):**
-
 ```json
 { "name": "New Name", "email": "new@example.com", "role": "SELLER" }
 ```
-
 - `403` if caller is neither the account owner nor `ADMIN`.
 - `403` `{ "message": "Only admins can change a user's role" }` if `role` is present in the
   body and the caller isn't `ADMIN` — **even when editing their own account**. This is the
@@ -227,40 +216,34 @@ All routes require `Authorization: Bearer <accessToken>`.
 - `200` → updated user object.
 
 ### `DELETE /api/users/:id`
-
 `403` if caller isn't `ADMIN`. `404` if not found. `204` (empty body) on success.
 
 ---
 
 ## 5. Category endpoints (`/api/categories`)
 
-| Method | Path                  | Who          |
-| ------ | --------------------- | ------------ |
-| GET    | `/api/categories`     | Public       |
-| GET    | `/api/categories/:id` | Public       |
-| POST   | `/api/categories`     | `ADMIN` only |
-| PUT    | `/api/categories/:id` | `ADMIN` only |
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/categories` | Public |
+| GET | `/api/categories/:id` | Public |
+| POST | `/api/categories` | `ADMIN` only |
+| PUT | `/api/categories/:id` | `ADMIN` only |
 | DELETE | `/api/categories/:id` | `ADMIN` only |
 
 ### `GET /api/categories`
-
 No auth needed. `200` → array of `{ id, name, createdAt }`.
 
 ### `GET /api/categories/:id`
-
 No auth needed. `404` if not found, else `200` → single category.
 
 ### `POST /api/categories`
-
 **Body:** `{ "name": "Electronics" }` (non-empty string required, 400 if missing/blank)
 `401` no/invalid token · `403` non-`ADMIN` · `409` duplicate name · `201` on success.
 
 ### `PUT /api/categories/:id`
-
 Same body/auth rules as `POST`. `404` if the category doesn't exist. `200` on success.
 
 ### `DELETE /api/categories/:id`
-
 `401`/`403` same as above. `404` if not found. **`409`** if the category still has products
 referencing it (`{ "message": "Cannot delete category that still has products" }`).
 `204` on success.
@@ -269,53 +252,39 @@ referencing it (`{ "message": "Cannot delete category that still has products" }
 
 ## 6. Product endpoints (`/api/products`)
 
-| Method | Path                | Who                      |
-| ------ | ------------------- | ------------------------ |
-| GET    | `/api/products`     | Public                   |
-| GET    | `/api/products/:id` | Public                   |
-| POST   | `/api/products`     | `SELLER` only            |
-| PUT    | `/api/products/:id` | product owner or `ADMIN` |
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/products` | Public |
+| GET | `/api/products/:id` | Public |
+| POST | `/api/products` | `SELLER` only |
+| PUT | `/api/products/:id` | product owner or `ADMIN` |
 | DELETE | `/api/products/:id` | product owner or `ADMIN` |
 
 ### `GET /api/products` / `GET /api/products/:id`
-
 No auth needed. Product shape:
-
 ```json
 {
-  "id": "...",
-  "name": "...",
-  "description": "...",
-  "price": "999.99",
-  "stock": 5,
-  "sellerId": "...",
-  "categoryId": "...",
-  "createdAt": "...",
-  "updatedAt": "..."
+  "id": "...", "name": "...", "description": "...",
+  "price": "999.99", "stock": 5,
+  "sellerId": "...", "categoryId": "...",
+  "createdAt": "...", "updatedAt": "..."
 }
 ```
-
 Note: `price` is serialized as a **string** (it's a Prisma `Decimal`) — parse it on the
 frontend before doing arithmetic, don't treat it as a JS `number` directly.
 
 ### `POST /api/products`
-
 Requires `Authorization: Bearer <token>` for a `SELLER` account. `403` for `BUYER`/`ADMIN`
 callers (only `SELLER` can create — an `ADMIN` cannot create products on a seller's behalf
 in the current implementation).
 
 **Body:**
-
 ```json
 {
-  "name": "Laptop",
-  "description": "A laptop",
-  "price": 999.99,
-  "stock": 5,
-  "categoryId": "cmrs..."
+  "name": "Laptop", "description": "A laptop",
+  "price": 999.99, "stock": 5, "categoryId": "cmrs..."
 }
 ```
-
 - `name`: 2–150 chars · `description`: non-empty · `price`: positive number ·
   `stock`: non-negative integer, defaults to 0 · `categoryId`: required, must reference a
   real `Category`
@@ -326,23 +295,147 @@ in the current implementation).
 - `201` on success.
 
 ### `PUT /api/products/:id`
-
 **Body:** any subset of `{ name, description, price, stock, categoryId }` (at least one
 field required). `sellerId` can never be changed through this endpoint.
-
 - `403` if caller is neither the product's seller nor `ADMIN`.
 - `404` if the product doesn't exist.
 - `400` if the new `categoryId` doesn't exist.
 - `200` on success.
 
 ### `DELETE /api/products/:id`
-
 `403` if caller is neither the product's seller nor `ADMIN`. `404` if not found. `204` on
 success.
 
 ---
 
-## 7. Quick endpoint index
+## 7. Order endpoints (`/api/orders`)
+
+This is the multi-vendor core of the API. A single checkout can contain products from
+several different sellers — each seller only ever sees their own slice of that order (see
+`GET /api/orders/seller-items` below), never the buyer's or other sellers' items.
+
+| Method | Path | Who | Purpose |
+|---|---|---|---|
+| POST | `/api/orders` | any authenticated user | Place an order (checkout) |
+| GET | `/api/orders` | any authenticated user | List your own orders (as buyer) |
+| GET | `/api/orders/admin` | `ADMIN` only | List every order in the system |
+| GET | `/api/orders/:id` | order's buyer or `ADMIN` | View one order + its items |
+| GET | `/api/orders/seller-items` | `SELLER` only | List only the line items *you* sold |
+| PATCH | `/api/orders/items/:id/status` | item's seller or `ADMIN` | Update one line item's fulfillment status |
+
+Role note: unlike `Product`, checkout has **no role restriction** — `BUYER`, `SELLER`, and
+`ADMIN` can all place an order. Role only governs what you can *manage* (list a product,
+etc.), not what you can *buy*.
+
+### `POST /api/orders` — checkout
+
+**Body:**
+```json
+{
+  "items": [
+    { "productId": "cmrs...", "quantity": 2 },
+    { "productId": "cmrs...", "quantity": 1 }
+  ]
+}
+```
+- `items`: array, at least 1 entry · each `quantity`: positive integer
+- **`buyerId` and `sellerId` are never accepted from the client** — `buyerId` comes from
+  `req.user.id`, `sellerId` on each line item comes from the product's actual owner at the
+  time of purchase. Same "never trust the body for ownership fields" rule as `Product`.
+- Stock and product existence are validated per line item **before** anything is written.
+  If any single item is invalid, the whole checkout is rejected — nothing partial is ever
+  created (backed by one Prisma transaction).
+
+**Success — `201`:**
+```json
+{
+  "id": "cmrs...", "buyerId": "cmrs...", "status": "PLACED", "totalAmount": "96",
+  "createdAt": "...", "updatedAt": "...",
+  "items": [
+    {
+      "id": "cmrs...", "orderId": "cmrs...", "productId": "cmrs...", "sellerId": "cmrs...",
+      "quantity": 2, "priceAtPurchase": "25.5", "status": "PENDING",
+      "createdAt": "...", "updatedAt": "..."
+    },
+    { "...": "one entry per cart line, each with its own sellerId + priceAtPurchase" }
+  ]
+}
+```
+Note: `totalAmount` and `priceAtPurchase` are serialized as **strings** (Prisma `Decimal`),
+same caveat as `Product.price` — parse before doing arithmetic on the frontend.
+
+`priceAtPurchase` is a **snapshot** taken at checkout time — it will never change even if
+the seller updates their product's price later. `totalAmount` is computed server-side from
+real current prices; nothing about pricing is ever trusted from the request body.
+
+**Failure cases:** `401` not logged in · `400` empty cart / bad shape · `404` a `productId`
+doesn't exist · `409` insufficient stock for some item (`{ "message": "Insufficient stock
+for product \"<name>\"" }`) — this can also fire from a genuine race condition against
+another buyer checking out the same product simultaneously, verified under real concurrent
+load (see `CLAUDE.md` 3.6).
+
+### `GET /api/orders` — your own order history
+
+No params. `200` → array of your own orders (filtered server-side by `buyerId`, not
+something you can bypass), each with nested `items`, newest first.
+
+### `GET /api/orders/admin` — every order in the system
+
+Requires `ADMIN` role — `403` otherwise. `200` → array of **all** orders across every
+buyer, each with nested `items`, newest first. Unlike `GET /api/orders`, this one isn't
+filtered by the caller's own identity at all — it exists specifically because the base
+`/api/orders` route always means "my own orders," even for an admin, so there was
+previously no way to browse orders without already knowing a specific order's ID.
+
+### `GET /api/orders/:id`
+
+`403` if you're neither this order's buyer nor `ADMIN`. `404` if it doesn't exist. `200` →
+single order with nested `items` (same shape as the checkout response).
+
+### `GET /api/orders/seller-items` — the "order splitting" view
+
+Requires `SELLER` role. `200` → array of **only your own `OrderItem` rows**, across
+however many different buyers' orders they came from:
+```json
+[
+  {
+    "id": "cmrs...", "orderId": "cmrs...", "productId": "cmrs...", "sellerId": "cmrs...",
+    "quantity": 2, "priceAtPurchase": "25.5", "status": "PENDING",
+    "createdAt": "...", "updatedAt": "...",
+    "product": { "id": "cmrs...", "name": "Mouse" },
+    "order": { "id": "cmrs...", "status": "PLACED", "buyerId": "cmrs...", "createdAt": "..." }
+  }
+]
+```
+Note the nested `order` object is deliberately minimal (`id`/`status`/`buyerId`/`createdAt`
+only) — it does **not** include that order's full `items`, so you never see another
+seller's line items even though they may share the same `orderId`.
+
+### `PATCH /api/orders/items/:id/status` — update fulfillment status
+
+**Body:** `{ "status": "SHIPPED" }` — one of `PENDING` / `SHIPPED` / `DELIVERED` /
+`CANCELLED`.
+
+Status changes follow a fixed state machine, enforced **regardless of role, including
+`ADMIN`**:
+```
+PENDING ──▶ SHIPPED ──▶ DELIVERED   (terminal, no further changes)
+   │            │
+   ▼            ▼
+CANCELLED   CANCELLED                (terminal, no further changes)
+```
+- `401` not logged in.
+- `403` if you're neither this item's seller nor `ADMIN`.
+- `400` `{ "message": "Cannot change status from X to Y" }` for any transition not in the
+  diagram above — e.g. `PENDING → DELIVERED` directly, or anything out of `DELIVERED`.
+  This applies even to `ADMIN` — ownership ("can you touch this row") and transition
+  validity ("is this specific change legal") are two independent checks.
+- `404` if the item doesn't exist.
+- `200` → the updated item on success.
+
+---
+
+## 8. Quick endpoint index
 
 ```
 GET    /health
@@ -368,4 +461,11 @@ GET    /api/products/:id       (public)
 POST   /api/products           (SELLER)
 PUT    /api/products/:id       (owner or ADMIN)
 DELETE /api/products/:id       (owner or ADMIN)
+
+POST   /api/orders                    (any authenticated role — checkout)
+GET    /api/orders                    (own orders as buyer)
+GET    /api/orders/admin              (ADMIN — every order in the system)
+GET    /api/orders/seller-items       (SELLER — own sold items only)
+GET    /api/orders/:id                (order's buyer or ADMIN)
+PATCH  /api/orders/items/:id/status   (item's seller or ADMIN)
 ```

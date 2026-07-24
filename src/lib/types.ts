@@ -63,3 +63,34 @@ export interface UpdateUserPayload {
   email?: string;
   role?: Role;
 }
+
+export type OrderStatus = "PLACED" | "CANCELLED";
+export type OrderItemStatus = "PENDING" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  productId: string;
+  sellerId: string;
+  quantity: number;
+  priceAtPurchase: string;
+  status: OrderItemStatus;
+  createdAt: string;
+  updatedAt: string;
+  product?: { id: string; name: string };
+  order?: { id: string; status: OrderStatus; buyerId: string; createdAt: string };
+}
+
+export interface Order {
+  id: string;
+  buyerId: string;
+  status: OrderStatus;
+  totalAmount: string;
+  createdAt: string;
+  updatedAt: string;
+  items: OrderItem[];
+}
+
+export interface CheckoutPayload {
+  items: { productId: string; quantity: number }[];
+}

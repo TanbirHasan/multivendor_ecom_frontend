@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { RoleBadge } from "@/components/ui/badge";
 import { initials } from "@/lib/utils";
 import { dashboardPathForRole } from "@/lib/roles";
+import { CartIndicator } from "@/components/cart/cart-indicator";
 import toast from "react-hot-toast";
 
 const DASHBOARD_LABEL = {
@@ -60,6 +61,7 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
+          <CartIndicator />
           {isInitializing ? (
             <div className="h-9 w-24 animate-pulse rounded-full bg-stone-100 dark:bg-stone-800" />
           ) : isAuthenticated && user ? (
@@ -94,13 +96,16 @@ export function Navbar() {
           )}
         </div>
 
-        <button
-          className="rounded-xl p-2 text-stone-600 hover:bg-stone-900/5 md:hidden dark:text-stone-300 dark:hover:bg-white/10"
-          onClick={() => setMobileOpen((v) => !v)}
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-        </button>
+        <div className="flex items-center gap-1 md:hidden">
+          <CartIndicator />
+          <button
+            className="rounded-xl p-2 text-stone-600 hover:bg-stone-900/5 dark:text-stone-300 dark:hover:bg-white/10"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-label="Toggle menu"
+          >
+            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
+        </div>
       </div>
 
       {mobileOpen && (
