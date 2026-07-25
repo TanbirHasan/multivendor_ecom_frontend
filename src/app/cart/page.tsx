@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { ArrowLeft, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { useCartStore } from "@/store/cart-store";
+import { useCheckoutStore } from "@/store/checkout-store";
 import { useAuth } from "@/hooks/use-auth";
 import { useHasMounted } from "@/hooks/use-has-mounted";
 import { checkout } from "@/lib/api/orders";
@@ -16,7 +17,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageSpinner } from "@/components/ui/spinner";
 
 export default function CartPage() {
-  const { items, removeItem, setQuantity, clear } = useCartStore();
+  const { items, removeItem, setQuantity } = useCartStore();
+  const setCheckout = useCheckoutStore((s) => s.setCheckout);
   const { isAuthenticated } = useAuth();
   const router = useRouter();
   const mounted = useHasMounted();
@@ -35,12 +37,11 @@ export default function CartPage() {
     }
     setIsCheckingOut(true);
     try {
-      const order = await checkout({
+      const { order, clientSecret } = await checkout({
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       });
-      clear();
-      toast.success("Order placed!");
-      router.push(`/orders/${order.id}`);
+      setCheckout(order.id, clientSecret);
+      router.push(`/checkout/${order.id}`);
     } catch (err) {
       toast.error(extractErrorMessage(err, "Checkout failed"));
     } finally {

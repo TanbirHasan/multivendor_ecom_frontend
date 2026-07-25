@@ -196,6 +196,67 @@ Specific sequencing decisions and why:
      route-ordering reason as `seller-items`. Tested: no token (401), buyer
      blocked (403), admin sees all orders across all buyers (200).
 4. **Payments** — Stripe test mode first, then SSLCommerz/bKash sandbox.
+
+   Sub-steps, in order:
+   - [x] 4.1 Stripe setup + schema. Created a Stripe test-mode account,
+     installed the SDK, added the real test secret key to `.env`. Added a
+     `Payment` model — `orderId` and `stripePaymentIntentId` both `@unique`
+     (enforces one payment per order at the DB level, and gives a lookup key
+     for the future webhook), `amount`/`currency` as a financial snapshot
+     (same reasoning as `OrderItem.priceAtPurchase`), `onDelete: Restrict`
+     on `Payment → Order` (protects real payment records, same as every
+     other financial FK in this schema). Migrated and verified.
+   - [x] 4.2 Restructure the checkout flow. Decision made deliberately: stock
+     is reserved (decremented) at checkout time using the existing guarded
+     mechanism from 3.2/3.6, *before* payment is confirmed — not only after
+     — so the item is actually guaranteed available to the buyer who's
+     paying for it right now. Rollback-on-payment-failure is deferred to
+     4.3, since that's inherently triggered by Stripe's webhook telling us
+     payment failed. `checkout()` now: validates the cart (unchanged) →
+     creates a real Stripe `PaymentIntent` for the computed total → runs the
+     existing DB transaction (stock decrement + `Order` + `OrderItem`s) with
+     a `Payment` row (status `PENDING`) added to the same transaction →
+     returns `{ order, clientSecret }` instead of just the order. Tested
+     against the real Stripe test API: a genuine `PaymentIntent` was created
+     and is visible in the Stripe Dashboard, and the `Payment` row correctly
+     recorded its id, amount, and currency.
+   - [x] 4.3 Webhook endpoint — `POST /api/payments/webhook`. Verifies
+     Stripe's `stripe-signature` header via `stripe.webhooks.constructEvent`
+     (not a JWT — Stripe calls this endpoint directly, not the frontend).
+     Required mounting this route's raw-body parser (`express.raw`) *before*
+     the global `express.json()` in `app.ts`, since signature verification
+     needs the exact raw bytes, not the parsed body. On
+     `payment_intent.succeeded`, marks `Payment.status = SUCCEEDED`. On
+     `payment_intent.payment_failed`, runs a transaction that restores each
+     item's stock, sets `Order.status = CANCELLED`, and marks
+     `Payment.status = FAILED` — closing the loop opened by 4.2's decision
+     to reserve stock before payment confirms. Guarded by `payment.status
+     === "PENDING"` before acting, since Stripe redelivers webhooks
+     at-least-once and reprocessing an already-finalized event must be a
+     no-op. Tested using `stripe.webhooks.generateTestHeaderString` against
+     a real running server (not mocked): successful payment, duplicate
+     event delivery (confirmed idempotent), failed payment with full stock
+     rollback (`3→1→3`), and an invalid signature correctly rejected with
+     `400`. Full end-to-end testing with the real Stripe CLI is still
+     deferred to 4.5.
+   - [ ] 4.4 Frontend payment UI. Stripe Elements (Payment Element) on the
+     checkout page — collecting card details, confirming payment
+     client-side, handling declined cards and 3D Secure challenges. This
+     lives entirely in the separate frontend project (a different repo/
+     Claude Code session), not here — see `docs/API.md` §8 "Frontend payment
+     integration guide" for the full, self-contained brief (packages needed,
+     publishable-key setup, the `confirmPayment` flow, and Stripe's test
+     card numbers). Backend endpoints it depends on (`POST /api/orders`
+     returning `clientSecret`, the webhook finalizing payment status) are
+     already built and tested — see 4.2/4.3 above.
+   - [ ] 4.5 Testing the full payment flow. Stripe test card numbers
+     (success, decline, insufficient funds), using the Stripe CLI to forward
+     real webhook events to `localhost` so 4.3 gets exercised end-to-end,
+     not just assumed correct.
+   - [ ] 4.6 SSLCommerz/bKash sandbox integration. Only after 4.1–4.5 are
+     solid and understood — the second payment provider, deliberately kept
+     separate so sandbox-specific quirks don't get tangled up with the
+     underlying payment concept itself.
 5. **Reviews & polish** — ratings, seller dashboards, search/filter/pagination.
 6. **Production hardening** — revisit every phase with production-grade config:
    structured logging, proper error handling, rate limiting, security headers,

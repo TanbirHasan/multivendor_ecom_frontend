@@ -81,6 +81,19 @@ export interface OrderItem {
   order?: { id: string; status: OrderStatus; buyerId: string; createdAt: string };
 }
 
+export type PaymentStatus = "PENDING" | "SUCCEEDED" | "FAILED";
+
+export interface Payment {
+  id: string;
+  orderId: string;
+  stripePaymentIntentId: string;
+  amount: string;
+  currency: string;
+  status: PaymentStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Order {
   id: string;
   buyerId: string;
@@ -89,8 +102,14 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];
+  payment?: Payment;
 }
 
 export interface CheckoutPayload {
   items: { productId: string; quantity: number }[];
+}
+
+export interface CheckoutResponse {
+  order: Order;
+  clientSecret: string;
 }

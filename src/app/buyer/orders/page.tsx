@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatPrice } from "@/lib/utils";
-import { orderStatusTone } from "@/lib/order-status";
+import { orderStatusTone, paymentStatusTone } from "@/lib/order-status";
 
 export default function BuyerOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -60,8 +60,9 @@ export default function BuyerOrdersPage() {
                       {formatDate(o.createdAt)} · {o.items.length} item{o.items.length === 1 ? "" : "s"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <Badge tone={orderStatusTone(o.status)}>{o.status}</Badge>
+                    {o.payment && <Badge tone={paymentStatusTone(o.payment.status)}>{o.payment.status}</Badge>}
                     <span className="font-semibold text-stone-700 dark:text-stone-300">{formatPrice(o.totalAmount)}</span>
                   </div>
                 </Link>

@@ -1,4 +1,4 @@
-import type { OrderItemStatus, OrderStatus } from "@/lib/types";
+import type { OrderItemStatus, OrderStatus, PaymentStatus } from "@/lib/types";
 
 const NEXT_STATUSES: Record<OrderItemStatus, OrderItemStatus[]> = {
   PENDING: ["SHIPPED", "CANCELLED"],
@@ -30,4 +30,15 @@ export function itemStatusTone(status: OrderItemStatus): "default" | "success" |
 
 export function orderStatusTone(status: OrderStatus): "default" | "success" | "warning" | "danger" {
   return status === "PLACED" ? "success" : "danger";
+}
+
+export function paymentStatusTone(status: PaymentStatus): "default" | "success" | "warning" | "danger" {
+  switch (status) {
+    case "PENDING":
+      return "warning";
+    case "SUCCEEDED":
+      return "success";
+    case "FAILED":
+      return "danger";
+  }
 }

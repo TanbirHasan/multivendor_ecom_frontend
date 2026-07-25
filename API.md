@@ -1,7 +1,13 @@
 # Multi-Vendor Marketplace Backend — API Reference
 
-Status: Phase 1 (Foundation), Phase 2 (Auth & RBAC), and Phase 3 (Multi-vendor order logic)
-complete. No `Payment`/`Review` endpoints exist yet — those belong to Phase 4/5.
+Status: Phase 1 (Foundation), Phase 2 (Auth & RBAC), Phase 3 (Multi-vendor order logic)
+complete. Phase 4 (Payments) is **in progress** — Stripe setup + schema (4.1), the
+restructured checkout flow (4.2), and the webhook that confirms/fails a payment (4.3) are
+all done and tested. What's still missing: the actual frontend payment form (Stripe
+Elements, 4.4) and full end-to-end testing via the real Stripe CLI (4.5) — until 4.4
+exists, there's no way for a real browser checkout to ever actually confirm a payment
+(the `clientSecret` from `POST /api/orders` has nowhere to go yet). No `Review` endpoints
+exist yet (Phase 5).
 
 This document is written for building a frontend client (e.g. Next.js) against the API
 as it exists right now. It reflects only what is actually implemented and tested.
@@ -32,9 +38,9 @@ build.
 logic — checkout, buyer/seller order views, fulfillment status, concurrency-safe stock)
 are all complete and manually tested against their permission boundaries, including a
 real concurrency stress test (8 simultaneous checkout requests against a single unit of
-stock — exactly one succeeded, never oversold). Phase 4 (payments), Phase 5
-(reviews/search), and Phase 6 (production hardening) haven't started yet — nothing below
-covers `Payment` or `Review`, because those tables don't exist yet.
+stock — exactly one succeeded, never oversold). Phase 4 (payments) is partway done — see
+the status line above. Phase 5 (reviews/search) and Phase 6 (production hardening) haven't
+started yet.
 
 ---
 
@@ -346,33 +352,61 @@ etc.), not what you can *buy*.
   If any single item is invalid, the whole checkout is rejected — nothing partial is ever
   created (backed by one Prisma transaction).
 
+**⚠️ Response shape changed in Phase 4 (4.2)** — this endpoint used to return the order
+object directly. It now returns `{ order, clientSecret }`. Update any existing frontend
+code that expected the bare order to unwrap `.order` instead.
+
 **Success — `201`:**
 ```json
 {
-  "id": "cmrs...", "buyerId": "cmrs...", "status": "PLACED", "totalAmount": "96",
-  "createdAt": "...", "updatedAt": "...",
-  "items": [
-    {
-      "id": "cmrs...", "orderId": "cmrs...", "productId": "cmrs...", "sellerId": "cmrs...",
-      "quantity": 2, "priceAtPurchase": "25.5", "status": "PENDING",
+  "order": {
+    "id": "cmrs...", "buyerId": "cmrs...", "status": "PLACED", "totalAmount": "96",
+    "createdAt": "...", "updatedAt": "...",
+    "items": [
+      {
+        "id": "cmrs...", "orderId": "cmrs...", "productId": "cmrs...", "sellerId": "cmrs...",
+        "quantity": 2, "priceAtPurchase": "25.5", "status": "PENDING",
+        "createdAt": "...", "updatedAt": "..."
+      },
+      { "...": "one entry per cart line, each with its own sellerId + priceAtPurchase" }
+    ],
+    "payment": {
+      "id": "cmrs...", "orderId": "cmrs...", "stripePaymentIntentId": "pi_...",
+      "amount": "96", "currency": "usd", "status": "PENDING",
       "createdAt": "...", "updatedAt": "..."
-    },
-    { "...": "one entry per cart line, each with its own sellerId + priceAtPurchase" }
-  ]
+    }
+  },
+  "clientSecret": "pi_..._secret_..."
 }
 ```
-Note: `totalAmount` and `priceAtPurchase` are serialized as **strings** (Prisma `Decimal`),
-same caveat as `Product.price` — parse before doing arithmetic on the frontend.
+Note: `totalAmount`, `priceAtPurchase`, and `payment.amount` are serialized as **strings**
+(Prisma `Decimal`), same caveat as `Product.price` — parse before doing arithmetic on the
+frontend.
 
 `priceAtPurchase` is a **snapshot** taken at checkout time — it will never change even if
 the seller updates their product's price later. `totalAmount` is computed server-side from
 real current prices; nothing about pricing is ever trusted from the request body.
 
+**`clientSecret`** is what the frontend needs for Stripe Elements (coming in 4.4) to
+actually collect card details and confirm the payment. It's returned once, here, and never
+stored in our database — only Stripe and the current page session ever hold it.
+
+**Stock is reserved (decremented) immediately at checkout**, before payment is confirmed —
+this guarantees the item is actually available to the buyer who's paying for it right now.
+The webhook (4.3) closes the loop: if the payment ultimately succeeds, `Payment.status`
+becomes `SUCCEEDED` and nothing else changes; if it fails, stock is automatically restored
+and `Order.status` becomes `CANCELLED`. Note this only resolves once Stripe actually sends
+a definitive success/failure event — a checkout the buyer simply abandons without ever
+submitting a card (no webhook event at all) will still leave `Payment.status: PENDING`
+and stock decremented indefinitely; there's no timeout/expiry handling for that case yet.
+
 **Failure cases:** `401` not logged in · `400` empty cart / bad shape · `404` a `productId`
 doesn't exist · `409` insufficient stock for some item (`{ "message": "Insufficient stock
 for product \"<name>\"" }`) — this can also fire from a genuine race condition against
 another buyer checking out the same product simultaneously, verified under real concurrent
-load (see `CLAUDE.md` 3.6).
+load (see `CLAUDE.md` 3.6) · `500` if the Stripe API call itself fails (e.g. invalid API
+key) — no order or stock change occurs in this case, since the `PaymentIntent` is created
+*before* the database transaction runs.
 
 ### `GET /api/orders` — your own order history
 
@@ -435,7 +469,65 @@ CANCELLED   CANCELLED                (terminal, no further changes)
 
 ---
 
-## 8. Quick endpoint index
+## 8. Frontend payment integration guide (Phase 4.4 — not built yet)
+
+This section is written for whoever implements the checkout payment UI — it's the one
+piece of Phase 4 that lives entirely in the frontend, and nothing below has been built or
+tested yet (unlike every other section in this document).
+
+### What already exists on the backend (don't rebuild these)
+
+- `POST /api/orders` creates the order **and** a Stripe `PaymentIntent`, returning
+  `{ order, clientSecret }` — see §7 above for the full shape.
+- A webhook (`POST /api/payments/webhook`) already listens for Stripe's
+  `payment_intent.succeeded`/`payment_intent.payment_failed` events and updates
+  `Payment.status` (and rolls back stock + cancels the order on failure) automatically.
+  **The frontend never calls this endpoint** — Stripe calls it directly, server-to-server.
+  Nothing needs to be built or triggered for it from the frontend.
+
+### What Phase 4.4 needs to build
+
+1. **Packages:** `@stripe/stripe-js` and `@stripe/react-stripe-js`.
+2. **A publishable key**, not the secret key — get it from the Stripe Dashboard →
+   Developers → API keys → **Publishable key** (starts with `pk_test_`, safe to expose in
+   frontend code/env vars, unlike the `sk_test_...` secret key which must never leave the
+   backend). Store it as `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (or equivalent) so Next.js
+   exposes it client-side.
+3. **The checkout flow:**
+   - Call `loadStripe(publishableKey)` **once**, at module scope (not inside a component,
+     to avoid recreating it on every render).
+   - Submit the cart to `POST /api/orders` as normal → receive `{ order, clientSecret }`.
+   - Wrap the payment form in `<Elements stripe={stripePromise} options={{ clientSecret }}>`.
+   - Render Stripe's `<PaymentElement />` inside it, plus your own submit button.
+   - On submit, call `stripe.confirmPayment({ elements, confirmParams: { return_url: ... },
+     redirect: 'if_required' })`. `redirect: 'if_required'` lets a simple successful card
+     payment resolve without leaving the page; a 3D-Secure challenge will still redirect to
+     `return_url` and back.
+4. **After `confirmPayment` resolves, don't trust its result as the final word.** The
+   *authoritative* status lives in our database, set by the webhook (which may arrive a
+   moment after Stripe's client-side confirmation). Recommended pattern: after
+   `confirmPayment` resolves without an error, fetch `GET /api/orders/:id` (polling briefly
+   if `payment.status` is still `PENDING`) to show the buyer the real, backend-confirmed
+   outcome rather than assuming success immediately.
+5. **The `return_url` page** (wherever a 3D-Secure redirect lands) should also just fetch
+   `GET /api/orders/:id` and render whatever `payment.status` actually is — don't try to
+   parse Stripe's own redirect query params for the final answer.
+
+### Stripe test card numbers (test mode only)
+
+| Card number | Behavior |
+|---|---|
+| `4242 4242 4242 4242` | Succeeds immediately (any future expiry, any CVC, any postal code) |
+| `4000 0025 0000 3155` | Requires 3D Secure authentication (tests the redirect flow) |
+| `4000 0000 0000 9995` | Declined — insufficient funds (tests the failure/rollback path end-to-end) |
+
+Using the decline card is a good way to manually verify the whole 4.3 rollback chain works
+from the buyer's actual perspective: stock should be restored and the order should show
+`CANCELLED` shortly after the decline.
+
+---
+
+## 9. Quick endpoint index
 
 ```
 GET    /health
@@ -468,4 +560,6 @@ GET    /api/orders/admin              (ADMIN — every order in the system)
 GET    /api/orders/seller-items       (SELLER — own sold items only)
 GET    /api/orders/:id                (order's buyer or ADMIN)
 PATCH  /api/orders/items/:id/status   (item's seller or ADMIN)
+
+POST   /api/payments/webhook          (Stripe only — never call this from the frontend)
 ```
