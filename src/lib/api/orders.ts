@@ -32,10 +32,10 @@ export async function updateItemStatus(id: string, status: OrderItemStatus) {
 }
 
 /**
- * The webhook that finalizes payment status can land a moment after Stripe's client-side
- * confirmation resolves, so the backend order record is briefly still "PENDING" even on a
- * successful card. Poll a few times before giving up and showing whatever the last known
- * state was.
+ * The webhook/IPN that finalizes payment status can land a moment after the gateway's
+ * client-side confirmation resolves, so the backend order record is briefly still "PENDING"
+ * even on a successful payment. Poll a few times before giving up and showing whatever the
+ * last known state was.
  */
 export async function pollOrderUntilPaymentResolved(
   id: string,
@@ -53,4 +53,14 @@ export async function pollOrderUntilPaymentResolved(
     }
   }
   return getOrder(id);
+}
+
+/**
+ * SSLCommerz redirects the browser back with its own `tran_id`, not our order id — there's
+ * no "get order by transaction id" endpoint, so we resolve it client-side against the
+ * buyer's own order list (which is all `GET /api/orders` ever returns anyway).
+ */
+export async function findOrderByProviderTransactionId(tranId: string) {
+  const orders = await listMyOrders();
+  return orders.find((o) => o.payment?.providerTransactionId === tranId) ?? null;
 }

@@ -10,8 +10,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { extractErrorMessage } from "@/lib/api/client";
 import { dashboardPathForRole } from "@/lib/roles";
+import { RequireGuest } from "@/components/guards/require-guest";
 
 export default function LoginPage() {
+  return (
+    <RequireGuest>
+      <LoginForm />
+    </RequireGuest>
+  );
+}
+
+function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");

@@ -10,8 +10,17 @@ import { Input, Select } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { extractErrorMessage } from "@/lib/api/client";
 import { dashboardPathForRole } from "@/lib/roles";
+import { RequireGuest } from "@/components/guards/require-guest";
 
 export default function RegisterPage() {
+  return (
+    <RequireGuest>
+      <RegisterForm />
+    </RequireGuest>
+  );
+}
+
+function RegisterForm() {
   const { register } = useAuth();
   const router = useRouter();
   const [name, setName] = useState("");

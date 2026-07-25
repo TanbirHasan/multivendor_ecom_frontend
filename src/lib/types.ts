@@ -82,11 +82,13 @@ export interface OrderItem {
 }
 
 export type PaymentStatus = "PENDING" | "SUCCEEDED" | "FAILED";
+export type PaymentProvider = "STRIPE" | "SSLCOMMERZ";
 
 export interface Payment {
   id: string;
   orderId: string;
-  stripePaymentIntentId: string;
+  provider: PaymentProvider;
+  providerTransactionId: string;
   amount: string;
   currency: string;
   status: PaymentStatus;
@@ -107,9 +109,17 @@ export interface Order {
 
 export interface CheckoutPayload {
   items: { productId: string; quantity: number }[];
+  provider?: PaymentProvider;
 }
 
-export interface CheckoutResponse {
+export interface CheckoutResponseStripe {
   order: Order;
   clientSecret: string;
 }
+
+export interface CheckoutResponseSslcommerz {
+  order: Order;
+  gatewayPageUrl: string;
+}
+
+export type CheckoutResponse = CheckoutResponseStripe | CheckoutResponseSslcommerz;

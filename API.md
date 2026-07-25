@@ -341,10 +341,14 @@ etc.), not what you can *buy*.
   "items": [
     { "productId": "cmrs...", "quantity": 2 },
     { "productId": "cmrs...", "quantity": 1 }
-  ]
+  ],
+  "provider": "STRIPE"
 }
 ```
 - `items`: array, at least 1 entry · each `quantity`: positive integer
+- `provider`: optional, `"STRIPE"` (default) or `"SSLCOMMERZ"` — **one endpoint handles
+  both gateways**, not two separate checkout routes, since cart validation/stock
+  reservation is identical either way.
 - **`buyerId` and `sellerId` are never accepted from the client** — `buyerId` comes from
   `req.user.id`, `sellerId` on each line item comes from the product's actual owner at the
   time of purchase. Same "never trust the body for ownership fields" rule as `Product`.
@@ -353,10 +357,17 @@ etc.), not what you can *buy*.
   created (backed by one Prisma transaction).
 
 **⚠️ Response shape changed in Phase 4 (4.2)** — this endpoint used to return the order
-object directly. It now returns `{ order, clientSecret }`. Update any existing frontend
-code that expected the bare order to unwrap `.order` instead.
+object directly. It now returns `{ order, clientSecret }` (Stripe) or `{ order,
+gatewayPageUrl }` (SSLCommerz) — **which key is present depends on which `provider` you
+requested.** Update any existing frontend code that expected the bare order to unwrap
+`.order` instead, and branch on `provider` to know which of `clientSecret`/`gatewayPageUrl`
+to expect.
 
-**Success — `201`:**
+**⚠️ `payment.stripePaymentIntentId` was renamed to `payment.providerTransactionId`**, and a
+new `payment.provider` field (`"STRIPE"` | `"SSLCOMMERZ"`) was added, as of Phase 4.6 —
+generalizing `Payment` to support a second payment gateway.
+
+**Success — `201`, `provider: "STRIPE"` (unchanged from before):**
 ```json
 {
   "order": {
@@ -371,7 +382,8 @@ code that expected the bare order to unwrap `.order` instead.
       { "...": "one entry per cart line, each with its own sellerId + priceAtPurchase" }
     ],
     "payment": {
-      "id": "cmrs...", "orderId": "cmrs...", "stripePaymentIntentId": "pi_...",
+      "id": "cmrs...", "orderId": "cmrs...", "provider": "STRIPE",
+      "providerTransactionId": "pi_...",
       "amount": "96", "currency": "usd", "status": "PENDING",
       "createdAt": "...", "updatedAt": "..."
     }
@@ -379,6 +391,40 @@ code that expected the bare order to unwrap `.order` instead.
   "clientSecret": "pi_..._secret_..."
 }
 ```
+
+**Success — `201`, `provider: "SSLCOMMERZ"` (new in 4.6.2):**
+```json
+{
+  "order": {
+    "id": "cmrs...", "buyerId": "cmrs...", "status": "PLACED", "totalAmount": "96",
+    "createdAt": "...", "updatedAt": "...",
+    "items": [ "...same shape as above..." ],
+    "payment": {
+      "id": "cmrs...", "orderId": "cmrs...", "provider": "SSLCOMMERZ",
+      "providerTransactionId": "a05a5526-...-uuid",
+      "amount": "96", "currency": "BDT", "status": "PENDING",
+      "createdAt": "...", "updatedAt": "..."
+    }
+  },
+  "gatewayPageUrl": "https://sandbox.sslcommerz.com/EasyCheckOut/..."
+}
+```
+Unlike Stripe, there is **no embedded card form** for SSLCommerz — the frontend must
+**redirect the entire browser** to `gatewayPageUrl` (`window.location.href = ...`), not
+render anything inline. The user completes payment on SSLCommerz's own hosted page, then
+gets redirected back to one of three URLs the backend already configured when initiating
+the session (not something the frontend passes in): success/fail/cancel pages under
+`${FRONTEND_URL}/checkout/sslcommerz/{success,fail,cancel}`. **These three frontend routes
+need to exist** (4.6.4) — SSLCommerz will redirect to them regardless.
+
+**Known simplifications, worth knowing before building the frontend for this:**
+- `currency: "BDT"` reuses the exact same numeric `totalAmount` as the `STRIPE` path would
+  — there is **no real USD↔BDT conversion**. A ৳96 SSLCommerz charge and a $96 Stripe charge
+  in this app currently represent the same underlying number, not equivalent real-world
+  value. Out of scope for this integration.
+- The backend currently sends placeholder customer address/phone to SSLCommerz (`User` has
+  no such fields yet) — not something the frontend needs to supply, just noting it exists.
+
 Note: `totalAmount`, `priceAtPurchase`, and `payment.amount` are serialized as **strings**
 (Prisma `Decimal`), same caveat as `Product.price` — parse before doing arithmetic on the
 frontend.
@@ -469,11 +515,11 @@ CANCELLED   CANCELLED                (terminal, no further changes)
 
 ---
 
-## 8. Frontend payment integration guide (Phase 4.4 — not built yet)
+## 8. Frontend payment integration guide — Stripe (Phase 4.4 — built)
 
-This section is written for whoever implements the checkout payment UI — it's the one
-piece of Phase 4 that lives entirely in the frontend, and nothing below has been built or
-tested yet (unlike every other section in this document).
+This section documents what was already built for the Stripe checkout UI, kept here as
+reference for anyone working on the frontend. See §9 below for the equivalent SSLCommerz
+guide, which is **not built yet**.
 
 ### What already exists on the backend (don't rebuild these)
 
@@ -527,7 +573,64 @@ from the buyer's actual perspective: stock should be restored and the order shou
 
 ---
 
-## 9. Quick endpoint index
+## 9. Frontend payment integration guide — SSLCommerz (Phase 4.6.4 — not built yet)
+
+Fundamentally different flow from Stripe's — **no embedded card form, no `Elements`,
+no `PaymentElement`**. This is a full-page redirect gateway.
+
+### What already exists on the backend (don't rebuild these)
+
+- `POST /api/orders` with `{ items, provider: "SSLCOMMERZ" }` creates the order and
+  initiates a real SSLCommerz sandbox session, returning `{ order, gatewayPageUrl }` — see
+  §7 above for the full shape.
+- An IPN endpoint (`POST /api/payments/sslcommerz-ipn`) already listens for SSLCommerz's
+  callback, re-validates it server-to-server against SSLCommerz's own Validation API (never
+  trusts the callback alone), and updates `Payment.status` (rolling back stock + cancelling
+  the order on failure) automatically. **The frontend never calls this endpoint** —
+  SSLCommerz calls it directly, server-to-server, same relationship as the Stripe webhook.
+
+### What Phase 4.6.4 needs to build
+
+1. **No packages needed** — this is just a browser redirect, no Stripe-Elements-style SDK
+   involved.
+2. **The checkout flow:**
+   - Submit the cart to `POST /api/orders` with `provider: "SSLCOMMERZ"` → receive
+     `{ order, gatewayPageUrl }`.
+   - **Redirect the entire browser** to `gatewayPageUrl` — e.g.
+     `window.location.href = gatewayPageUrl`. Do **not** try to render this inline in an
+     iframe or embedded component; SSLCommerz's own hosted page handles card/mobile-banking
+     entry entirely on their domain.
+3. **Three frontend routes must exist**, because the backend already configured these exact
+   URLs when initiating the session (not something the frontend passes in or can change
+   without also updating the backend's `order.service.ts`):
+   - `${FRONTEND_URL}/checkout/sslcommerz/success`
+   - `${FRONTEND_URL}/checkout/sslcommerz/fail`
+   - `${FRONTEND_URL}/checkout/sslcommerz/cancel`
+
+   SSLCommerz redirects the browser to one of these after the user finishes on their
+   hosted page. **None of these three pages should trust their own existence/URL as proof
+   of the outcome** — same principle as Stripe's `return_url`: even landing on `/success`
+   doesn't guarantee the IPN has been processed yet (or ever will be, if IPN delivery is
+   delayed or fails). Each page should fetch `GET /api/orders/:id` and render whatever
+   `payment.status` actually is, polling briefly if it's still `PENDING` — identical pattern
+   to the Stripe `return_url` handling in §8.
+
+### A real, unresolved gap worth knowing before testing this end-to-end
+
+Stripe had `stripe listen` (the CLI) to forward real webhook events to `localhost` during
+local development. **SSLCommerz has no equivalent local-forwarding tool.** Their IPN call
+is sent from SSLCommerz's real servers to whatever `ipn_url` was configured
+(`${APP_BASE_URL}/api/payments/sslcommerz-ipn`) — if that's `localhost:5000`, SSLCommerz's
+servers cannot reach it, the same "can't reach localhost from the internet" problem Stripe
+had, but without a CLI workaround. Testing the real IPN delivery path (as opposed to the
+backend logic itself, which is already tested) will likely need a tunneling tool (e.g.
+`ngrok`, `cloudflared`) to expose `localhost:5000` with a temporary public URL, updating
+`APP_BASE_URL` accordingly before initiating a test session. This is a 4.6.5 concern, not
+something to solve while building the frontend redirect flow itself.
+
+---
+
+## 10. Quick endpoint index
 
 ```
 GET    /health
@@ -554,7 +657,7 @@ POST   /api/products           (SELLER)
 PUT    /api/products/:id       (owner or ADMIN)
 DELETE /api/products/:id       (owner or ADMIN)
 
-POST   /api/orders                    (any authenticated role — checkout)
+POST   /api/orders                    (any authenticated role — checkout; body.provider: STRIPE default | SSLCOMMERZ)
 GET    /api/orders                    (own orders as buyer)
 GET    /api/orders/admin              (ADMIN — every order in the system)
 GET    /api/orders/seller-items       (SELLER — own sold items only)
@@ -562,4 +665,5 @@ GET    /api/orders/:id                (order's buyer or ADMIN)
 PATCH  /api/orders/items/:id/status   (item's seller or ADMIN)
 
 POST   /api/payments/webhook          (Stripe only — never call this from the frontend)
+POST   /api/payments/sslcommerz-ipn   (SSLCommerz only — never call this from the frontend)
 ```

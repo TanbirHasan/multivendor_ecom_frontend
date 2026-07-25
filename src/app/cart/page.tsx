@@ -4,17 +4,23 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { ArrowLeft, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { ArrowLeft, Banknote, CreditCard, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { useCartStore } from "@/store/cart-store";
 import { useCheckoutStore } from "@/store/checkout-store";
 import { useAuth } from "@/hooks/use-auth";
 import { useHasMounted } from "@/hooks/use-has-mounted";
 import { checkout } from "@/lib/api/orders";
 import { extractErrorMessage } from "@/lib/api/client";
-import { formatPrice } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageSpinner } from "@/components/ui/spinner";
+import type { PaymentProvider } from "@/lib/types";
+
+const PAYMENT_METHODS: { provider: PaymentProvider; label: string; description: string; icon: typeof CreditCard }[] = [
+  { provider: "STRIPE", label: "Card (Stripe)", description: "Visa, Mastercard — pay on this page", icon: CreditCard },
+  { provider: "SSLCOMMERZ", label: "SSLCommerz", description: "bKash, Nagad, cards — redirects to a hosted page", icon: Banknote },
+];
 
 export default function CartPage() {
   const { items, removeItem, setQuantity } = useCartStore();
@@ -23,6 +29,7 @@ export default function CartPage() {
   const router = useRouter();
   const mounted = useHasMounted();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [provider, setProvider] = useState<PaymentProvider>("STRIPE");
 
   const total = useMemo(
     () => items.reduce((sum, i) => sum + parseFloat(i.price) * i.quantity, 0),
@@ -37,14 +44,22 @@ export default function CartPage() {
     }
     setIsCheckingOut(true);
     try {
-      const { order, clientSecret } = await checkout({
+      const result = await checkout({
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        provider,
       });
-      setCheckout(order.id, clientSecret);
-      router.push(`/checkout/${order.id}`);
+
+      if ("clientSecret" in result) {
+        setCheckout(result.order.id, result.clientSecret);
+        router.push(`/checkout/${result.order.id}`);
+        return;
+      }
+
+      // SSLCommerz has no embedded form — the entire browser has to leave our app and land
+      // on their hosted checkout page, so this is a full navigation, not a router push.
+      window.location.href = result.gatewayPageUrl;
     } catch (err) {
       toast.error(extractErrorMessage(err, "Checkout failed"));
-    } finally {
       setIsCheckingOut(false);
     }
   }
@@ -136,7 +151,31 @@ export default function CartPage() {
               <span>Total</span>
               <span>{formatPrice(total)}</span>
             </div>
-            <Button className="mt-6 w-full" size="lg" onClick={handleCheckout} isLoading={isCheckingOut}>
+
+            <div className="mt-5 space-y-2">
+              <p className="text-xs font-bold uppercase tracking-wide text-stone-400">Pay with</p>
+              {PAYMENT_METHODS.map((method) => (
+                <button
+                  key={method.provider}
+                  type="button"
+                  onClick={() => setProvider(method.provider)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-colors",
+                    provider === method.provider
+                      ? "border-teal-600 bg-teal-50 dark:border-amber-400 dark:bg-amber-400/10"
+                      : "border-stone-200 bg-white hover:border-stone-300 dark:border-stone-700 dark:bg-stone-950/40"
+                  )}
+                >
+                  <method.icon className="size-4.5 shrink-0 text-stone-500 dark:text-stone-400" />
+                  <span>
+                    <span className="block text-sm font-bold text-stone-900 dark:text-stone-100">{method.label}</span>
+                    <span className="block text-xs text-stone-500 dark:text-stone-400">{method.description}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <Button className="mt-4 w-full" size="lg" onClick={handleCheckout} isLoading={isCheckingOut}>
               Checkout
             </Button>
             <p className="mt-3 text-center text-xs text-stone-400">

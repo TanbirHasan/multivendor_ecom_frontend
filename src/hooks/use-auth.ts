@@ -2,6 +2,8 @@
 
 import { useCallback } from "react";
 import { useAuthStore } from "@/store/auth-store";
+import { useCartStore } from "@/store/cart-store";
+import { useCheckoutStore } from "@/store/checkout-store";
 import { loginRequest, logoutRequest, registerRequest } from "@/lib/api/auth";
 import type { LoginPayload, RegisterPayload } from "@/lib/types";
 
@@ -35,6 +37,10 @@ export function useAuth() {
       await logoutRequest();
     } finally {
       clearAuth();
+      // The cart persists to localStorage and isn't scoped to a user — clear it on logout so
+      // the next person on this browser doesn't see the previous account's selected items.
+      useCartStore.getState().clear();
+      useCheckoutStore.getState().clear();
     }
   }, [clearAuth]);
 

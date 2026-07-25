@@ -139,7 +139,7 @@ function OrderDetailContent({ id }: { id: string }) {
                 </Badge>
               </p>
               <p className="text-xs font-medium text-stone-400">
-                {formatPrice(order.payment.amount)} {order.payment.currency.toUpperCase()}
+                {formatPrice(order.payment.amount)} {order.payment.currency.toUpperCase()} via {order.payment.provider}
               </p>
             </div>
           </div>
