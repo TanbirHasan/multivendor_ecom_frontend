@@ -58,6 +58,32 @@ export interface CreateProductPayload {
 
 export type UpdateProductPayload = Partial<CreateProductPayload>;
 
+export type ProductSortBy = "price" | "createdAt" | "name";
+export type SortOrder = "asc" | "desc";
+
+export interface ProductsQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  categoryId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sortBy?: ProductSortBy;
+  order?: SortOrder;
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedProducts {
+  data: Product[];
+  pagination: PaginationMeta;
+}
+
 export interface UpdateUserPayload {
   name?: string;
   email?: string;

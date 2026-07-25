@@ -5,7 +5,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { deleteProduct, listProducts } from "@/lib/api/products";
+import { deleteProduct, listAllProducts } from "@/lib/api/products";
 import { listCategories } from "@/lib/api/categories";
 import type { Category, Product } from "@/lib/types";
 import { PageSpinner } from "@/components/ui/spinner";
@@ -28,7 +28,7 @@ export default function SellerProductsPage() {
     async function load() {
       setIsLoading(true);
       try {
-        const [productsData, categoriesData] = await Promise.all([listProducts(), listCategories()]);
+        const [productsData, categoriesData] = await Promise.all([listAllProducts(), listCategories()]);
         setProducts(productsData);
         setCategories(categoriesData);
       } finally {

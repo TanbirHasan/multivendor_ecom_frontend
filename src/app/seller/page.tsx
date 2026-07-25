@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Boxes, Clock3, DollarSign, PackagePlus, PackageSearch } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { listProducts } from "@/lib/api/products";
+import { listAllProducts } from "@/lib/api/products";
 import { listCategories } from "@/lib/api/categories";
 import { listSellerItems } from "@/lib/api/orders";
 import type { Category, OrderItem, Product } from "@/lib/types";
@@ -26,7 +26,7 @@ export default function SellerOverviewPage() {
       setIsLoading(true);
       try {
         const [productsData, categoriesData, soldItemsData] = await Promise.all([
-          listProducts(),
+          listAllProducts(),
           listCategories(),
           listSellerItems(),
         ]);

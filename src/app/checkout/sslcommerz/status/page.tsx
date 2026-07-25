@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, HelpCircle, Landmark, XCircle } from "lucide-react";
 import { RequireAuth } from "@/components/guards/require-auth";
-import { getOrder, findOrderByProviderTransactionId, pollOrderUntilPaymentResolved } from "@/lib/api/orders";
+import { findOrderByProviderTransactionId, pollOrderUntilPaymentResolved } from "@/lib/api/orders";
 import { useCartStore } from "@/store/cart-store";
 import type { Order } from "@/lib/types";
 import { PageSpinner } from "@/components/ui/spinner";
@@ -27,7 +27,6 @@ function SslcommerzStatusContent() {
   const searchParams = useSearchParams();
   const outcome = searchParams.get("outcome");
   const tranId = searchParams.get("tranId");
-  const orderIdParam = searchParams.get("orderId");
   const clearCart = useCartStore((s) => s.clear);
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -38,20 +37,18 @@ function SslcommerzStatusContent() {
     async function resolve() {
       setIsLoading(true);
       try {
-        let resolvedOrder: Order | null = null;
-
-        if (orderIdParam) {
-          resolvedOrder = await getOrder(orderIdParam).catch(() => null);
+        if (!tranId) {
+          setUnresolved(true);
+          return;
         }
 
-        if (!resolvedOrder && tranId) {
-          // The order is created synchronously at checkout, before the buyer ever reaches
-          // SSLCommerz's page, so it should already exist — but allow a couple of quick
-          // retries in case this page loads faster than the DB write settles.
-          for (let i = 0; i < 3 && !resolvedOrder; i++) {
-            resolvedOrder = await findOrderByProviderTransactionId(tranId);
-            if (!resolvedOrder) await new Promise((r) => setTimeout(r, 1000));
-          }
+        // The order is created synchronously at checkout, before the buyer ever reaches
+        // SSLCommerz's page, so it should already exist — but allow a couple of quick
+        // retries in case this page loads faster than the DB write settles.
+        let resolvedOrder = null;
+        for (let i = 0; i < 3 && !resolvedOrder; i++) {
+          resolvedOrder = await findOrderByProviderTransactionId(tranId);
+          if (!resolvedOrder) await new Promise((r) => setTimeout(r, 1000));
         }
 
         if (!resolvedOrder) {
@@ -72,7 +69,7 @@ function SslcommerzStatusContent() {
       }
     }
     resolve();
-  }, [orderIdParam, tranId, clearCart]);
+  }, [tranId, clearCart]);
 
   if (isLoading) return <PageSpinner label="Confirming your payment…" />;
 

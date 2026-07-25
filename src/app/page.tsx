@@ -2,14 +2,24 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Boxes, Search, ShieldCheck, ShoppingBag, Store } from "lucide-react";
+import { Boxes, ChevronLeft, ChevronRight, Search, ShieldCheck, ShoppingBag, Store } from "lucide-react";
 import { listProducts } from "@/lib/api/products";
 import { listCategories } from "@/lib/api/categories";
-import type { Category, Product } from "@/lib/types";
+import type { Category, PaginationMeta, Product, ProductSortBy, SortOrder } from "@/lib/types";
 import { ProductCard } from "@/components/products/product-card";
 import { PageSpinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Select } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+
+const SORT_OPTIONS: { value: string; label: string; sortBy: ProductSortBy; order: SortOrder }[] = [
+  { value: "newest", label: "Newest first", sortBy: "createdAt", order: "desc" },
+  { value: "oldest", label: "Oldest first", sortBy: "createdAt", order: "asc" },
+  { value: "price-asc", label: "Price: low to high", sortBy: "price", order: "asc" },
+  { value: "price-desc", label: "Price: high to low", sortBy: "price", order: "desc" },
+  { value: "name-asc", label: "Name: A to Z", sortBy: "name", order: "asc" },
+  { value: "name-desc", label: "Name: Z to A", sortBy: "name", order: "desc" },
+];
 
 export default function HomePage() {
   return (
@@ -22,36 +32,74 @@ export default function HomePage() {
 function HomeContent() {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
+  const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string | null>(
-    searchParams.get("category")
-  );
+  const [activeCategory, setActiveCategory] = useState<string | null>(searchParams.get("category"));
+  const [minPriceInput, setMinPriceInput] = useState("");
+  const [maxPriceInput, setMaxPriceInput] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [sortValue, setSortValue] = useState("newest");
+  const [page, setPage] = useState(1);
+
+  // Debounce free-text search and price inputs so we're not firing a request per keystroke.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
 
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      setMinPrice(minPriceInput);
+      setMaxPrice(maxPriceInput);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [minPriceInput, maxPriceInput]);
+
+  useEffect(() => {
+    listCategories().then(setCategories);
+  }, []);
+
+  useEffect(() => {
+    const sort = SORT_OPTIONS.find((o) => o.value === sortValue) ?? SORT_OPTIONS[0];
+    const min = minPrice.trim() ? Number(minPrice) : undefined;
+    const max = maxPrice.trim() ? Number(maxPrice) : undefined;
+
     async function load() {
       setIsLoading(true);
       try {
-        const [productsData, categoriesData] = await Promise.all([listProducts(), listCategories()]);
-        setProducts(productsData);
-        setCategories(categoriesData);
+        const result = await listProducts({
+          page,
+          search: search || undefined,
+          categoryId: activeCategory ?? undefined,
+          minPrice: min !== undefined && !Number.isNaN(min) ? min : undefined,
+          maxPrice: max !== undefined && !Number.isNaN(max) ? max : undefined,
+          sortBy: sort.sortBy,
+          order: sort.order,
+        });
+        setProducts(result.data);
+        setPagination(result.pagination);
       } finally {
         setIsLoading(false);
       }
     }
     load();
-  }, []);
+  }, [page, search, activeCategory, minPrice, maxPrice, sortValue]);
 
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
 
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
-      const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
-      const matchesCategory = !activeCategory || p.categoryId === activeCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [products, search, activeCategory]);
+  function selectCategory(id: string | null) {
+    setActiveCategory(id);
+    setPage(1);
+  }
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -72,7 +120,7 @@ function HomeContent() {
               </p>
               <div className="mt-7 grid max-w-xl grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                 <HeroMetric icon={Store} label="Seller ready" value="RBAC" />
-                <HeroMetric icon={Boxes} label="Catalog" value={`${products.length}`} />
+                <HeroMetric icon={Boxes} label="Catalog" value={`${pagination?.total ?? 0}`} />
                 <HeroMetric icon={ShieldCheck} label="Admin tools" value="Built in" />
               </div>
             </div>
@@ -97,13 +145,13 @@ function HomeContent() {
         </div>
       </section>
 
-      <div className="mb-8 rounded-3xl border border-stone-200/70 bg-white/74 p-4 shadow-sm shadow-stone-950/5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/64">
+      <div className="mb-8 space-y-4 rounded-3xl border border-stone-200/70 bg-white/74 p-4 shadow-sm shadow-stone-950/5 backdrop-blur dark:border-stone-800 dark:bg-stone-900/64">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-sm">
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-stone-400" />
             <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search products..."
               className="w-full rounded-2xl border border-stone-300/80 bg-white py-3 pl-11 pr-4 text-sm font-medium text-stone-900 shadow-sm shadow-stone-950/5 placeholder:text-stone-400 focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-600/10 dark:border-stone-700 dark:bg-stone-950/70 dark:text-stone-100"
             />
@@ -112,7 +160,7 @@ function HomeContent() {
           {categories.length > 0 && (
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => setActiveCategory(null)}
+                onClick={() => selectCategory(null)}
                 className={cn(
                   "rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors",
                   activeCategory === null
@@ -125,7 +173,7 @@ function HomeContent() {
               {categories.map((c) => (
                 <button
                   key={c.id}
-                  onClick={() => setActiveCategory(c.id)}
+                  onClick={() => selectCategory(c.id)}
                   className={cn(
                     "rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors",
                     activeCategory === c.id
@@ -139,19 +187,127 @@ function HomeContent() {
             </div>
           )}
         </div>
+
+        <div className="flex flex-col gap-3 border-t border-stone-200/70 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-stone-800">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wide text-stone-400">Price</span>
+            <input
+              type="number"
+              min="0"
+              inputMode="decimal"
+              value={minPriceInput}
+              onChange={(e) => setMinPriceInput(e.target.value)}
+              placeholder="Min"
+              className="w-24 rounded-xl border border-stone-300/80 bg-white px-3 py-2 text-sm text-stone-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-600/10 dark:border-stone-700 dark:bg-stone-950/70 dark:text-stone-100"
+            />
+            <span className="text-stone-400">–</span>
+            <input
+              type="number"
+              min="0"
+              inputMode="decimal"
+              value={maxPriceInput}
+              onChange={(e) => setMaxPriceInput(e.target.value)}
+              placeholder="Max"
+              className="w-24 rounded-xl border border-stone-300/80 bg-white px-3 py-2 text-sm text-stone-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-600/10 dark:border-stone-700 dark:bg-stone-950/70 dark:text-stone-100"
+            />
+          </div>
+
+          <div className="w-full sm:w-56">
+            <Select
+              id="sort"
+              value={sortValue}
+              onChange={(e) => {
+                setSortValue(e.target.value);
+                setPage(1);
+              }}
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
       </div>
 
       {isLoading ? (
         <PageSpinner label="Loading products..." />
-      ) : filtered.length === 0 ? (
-        <EmptyState icon={ShoppingBag} title="No products found" description="Try a different search or category." />
+      ) : products.length === 0 ? (
+        <EmptyState icon={ShoppingBag} title="No products found" description="Try a different search or filter." />
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((product) => (
-            <ProductCard key={product.id} product={product} categoryName={categoryMap.get(product.categoryId)} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} categoryName={categoryMap.get(product.categoryId)} />
+            ))}
+          </div>
+
+          {pagination && pagination.totalPages > 1 && (
+            <PaginationBar pagination={pagination} onPageChange={setPage} />
+          )}
+        </>
       )}
+    </div>
+  );
+}
+
+function PaginationBar({
+  pagination,
+  onPageChange,
+}: {
+  pagination: PaginationMeta;
+  onPageChange: (page: number) => void;
+}) {
+  const { page, totalPages } = pagination;
+
+  const pages = useMemo(() => {
+    const windowSize = 5;
+    let start = Math.max(1, page - Math.floor(windowSize / 2));
+    const end = Math.min(totalPages, start + windowSize - 1);
+    start = Math.max(1, end - windowSize + 1);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  }, [page, totalPages]);
+
+  return (
+    <div className="mt-10 flex flex-col items-center justify-between gap-4 sm:flex-row">
+      <p className="text-sm text-stone-500 dark:text-stone-400">
+        Page {page} of {totalPages} · {pagination.total} products
+      </p>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
+          className="flex size-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 transition-colors hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-amber-300"
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="size-4" />
+        </button>
+        {pages[0] > 1 && <span className="px-1 text-stone-400">…</span>}
+        {pages.map((p) => (
+          <button
+            key={p}
+            onClick={() => onPageChange(p)}
+            className={cn(
+              "flex size-9 items-center justify-center rounded-xl border text-sm font-semibold transition-colors",
+              p === page
+                ? "border-stone-950 bg-stone-950 text-white dark:border-amber-400 dark:bg-amber-400 dark:text-stone-950"
+                : "border-stone-200 bg-white text-stone-600 hover:border-teal-300 hover:text-teal-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-amber-300"
+            )}
+          >
+            {p}
+          </button>
+        ))}
+        {pages[pages.length - 1] < totalPages && <span className="px-1 text-stone-400">…</span>}
+        <button
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages}
+          className="flex size-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 transition-colors hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:hover:text-amber-300"
+          aria-label="Next page"
+        >
+          <ChevronRight className="size-4" />
+        </button>
+      </div>
     </div>
   );
 }

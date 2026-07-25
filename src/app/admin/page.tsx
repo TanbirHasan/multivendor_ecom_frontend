@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, Layers, Package, Receipt, ShieldCheck, Store, Users, Wallet } from "lucide-react";
 import { listUsers } from "@/lib/api/users";
 import { listCategories } from "@/lib/api/categories";
-import { listProducts } from "@/lib/api/products";
+import { listAllProducts } from "@/lib/api/products";
 import { listAllOrdersAdmin } from "@/lib/api/orders";
 import type { Category, Order, Product, User } from "@/lib/types";
 import { PageSpinner } from "@/components/ui/spinner";
@@ -28,7 +28,7 @@ export default function AdminOverviewPage() {
         const [usersData, categoriesData, productsData, ordersData] = await Promise.all([
           listUsers(),
           listCategories(),
-          listProducts(),
+          listAllProducts(),
           listAllOrdersAdmin(),
         ]);
         setUsers(usersData);

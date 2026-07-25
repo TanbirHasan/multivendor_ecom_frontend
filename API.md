@@ -266,18 +266,47 @@ referencing it (`{ "message": "Cannot delete category that still has products" }
 | PUT | `/api/products/:id` | product owner or `ADMIN` |
 | DELETE | `/api/products/:id` | product owner or `ADMIN` |
 
-### `GET /api/products` / `GET /api/products/:id`
-No auth needed. Product shape:
+### `GET /api/products` — list, now paginated + searchable/filterable (Phase 5.1+5.2)
+
+No auth needed.
+
+**⚠️ Response shape changed** — this used to return a bare array. It now returns:
 ```json
 {
-  "id": "...", "name": "...", "description": "...",
-  "price": "999.99", "stock": 5,
-  "sellerId": "...", "categoryId": "...",
-  "createdAt": "...", "updatedAt": "..."
+  "data": [
+    {
+      "id": "...", "name": "...", "description": "...",
+      "price": "999.99", "stock": 5,
+      "sellerId": "...", "categoryId": "...",
+      "createdAt": "...", "updatedAt": "..."
+    }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 24, "totalPages": 2 }
 }
 ```
+Update any frontend code that expected a bare array to read `.data` instead.
+
+**Query params (all optional):**
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `page` | positive integer | `1` | |
+| `limit` | positive integer | `20` | capped at `100` |
+| `search` | string | — | case-insensitive, matches `name` OR `description` (partial match) |
+| `categoryId` | string | — | exact match |
+| `minPrice` / `maxPrice` | number | — | either or both |
+| `sortBy` | `price` \| `createdAt` \| `name` | `createdAt` | |
+| `order` | `asc` \| `desc` | `desc` | |
+
+Example: `GET /api/products?search=mouse&categoryId=cmrs...&minPrice=20&maxPrice=50&sortBy=price&order=asc&page=1&limit=10`
+
+`400` for invalid values (e.g. `page=-1`, `limit=500`), same validation-error shape as everywhere else in this API.
+
 Note: `price` is serialized as a **string** (it's a Prisma `Decimal`) — parse it on the
 frontend before doing arithmetic, don't treat it as a JS `number` directly.
+
+### `GET /api/products/:id`
+No auth needed. Same single-product shape as above (not wrapped in `data`/`pagination` —
+only the list endpoint is paginated). `404` if not found.
 
 ### `POST /api/products`
 Requires `Authorization: Bearer <token>` for a `SELLER` account. `403` for `BUYER`/`ADMIN`
@@ -573,7 +602,7 @@ from the buyer's actual perspective: stock should be restored and the order shou
 
 ---
 
-## 9. Frontend payment integration guide — SSLCommerz (Phase 4.6.4 — not built yet)
+## 9. Frontend payment integration guide — SSLCommerz (Phase 4.6.4 — built)
 
 Fundamentally different flow from Stripe's — **no embedded card form, no `Elements`,
 no `PaymentElement`**. This is a full-page redirect gateway.
@@ -607,6 +636,13 @@ no `PaymentElement`**. This is a full-page redirect gateway.
    - `${FRONTEND_URL}/checkout/sslcommerz/fail`
    - `${FRONTEND_URL}/checkout/sslcommerz/cancel`
 
+   **⚠️ These must handle both `GET` and `POST`.** SSLCommerz's hosted page sends the buyer
+   back via an auto-submitting HTML form (a real `POST`), not a link/redirect a plain page
+   component (`page.tsx`, GET-only) can answer — in Next.js App Router terms, these need to
+   be Route Handlers (`route.ts`) exporting both `GET` and `POST`, which then redirect
+   (`303`) to whatever actual UI renders the result. This wasn't originally called out in
+   this doc and was correctly caught while implementing 4.6.4.
+
    SSLCommerz redirects the browser to one of these after the user finishes on their
    hosted page. **None of these three pages should trust their own existence/URL as proof
    of the outcome** — same principle as Stripe's `return_url`: even landing on `/success`
@@ -614,6 +650,16 @@ no `PaymentElement`**. This is a full-page redirect gateway.
    delayed or fails). Each page should fetch `GET /api/orders/:id` and render whatever
    `payment.status` actually is, polling briefly if it's still `PENDING` — identical pattern
    to the Stripe `return_url` handling in §8.
+4. **Resolving which order the redirect belongs to: use `tran_id`, not `value_a`/`value_b`/
+   `value_c`/`value_d`.** SSLCommerz supports custom passthrough fields (`value_a` etc.) for
+   exactly this purpose, but **the backend does not currently set any of them** — only
+   `tran_id` is sent during session initiation. `tran_id` is SSLCommerz's own core
+   transaction reference (not optional/custom), reliably present on every redirect and IPN
+   call, and it's exactly what's stored as `payment.providerTransactionId`. The correct,
+   sufficient approach: read `tran_id` from the redirect's query/form params, then match it
+   against `payment.providerTransactionId` in the buyer's own `GET /api/orders` list (or
+   `GET /api/orders/:id` if you already know the order id from local state) — no dedicated
+   backend lookup-by-`tran_id` endpoint exists or is needed for this.
 
 ### A real, unresolved gap worth knowing before testing this end-to-end
 

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Info, Package, Pencil, Trash2 } from "lucide-react";
-import { deleteProduct, listProducts } from "@/lib/api/products";
+import { deleteProduct, listAllProducts } from "@/lib/api/products";
 import { listCategories } from "@/lib/api/categories";
 import { listUsers } from "@/lib/api/users";
 import type { Category, Product, User } from "@/lib/types";
@@ -29,7 +29,7 @@ export default function AdminProductsPage() {
       setIsLoading(true);
       try {
         const [productsData, categoriesData, usersData] = await Promise.all([
-          listProducts(),
+          listAllProducts(),
           listCategories(),
           listUsers(),
         ]);
