@@ -25,6 +25,9 @@ export interface Product {
   categoryId: string;
   createdAt: string;
   updatedAt: string;
+  /** null (not 0) when reviewCount is 0 — distinguishes "no ratings yet" from "rated zero". */
+  averageRating: number | null;
+  reviewCount: number;
 }
 
 export interface ApiErrorBody {
@@ -149,3 +152,34 @@ export interface CheckoutResponseSslcommerz {
 }
 
 export type CheckoutResponse = CheckoutResponseStripe | CheckoutResponseSslcommerz;
+
+export interface Review {
+  id: string;
+  rating: number;
+  comment: string | null;
+  productId: string;
+  buyerId: string;
+  createdAt: string;
+  updatedAt: string;
+  buyer: { id: string; name: string };
+}
+
+export interface ReviewPayload {
+  productId: string;
+  rating: number;
+  comment?: string;
+}
+
+export interface BestSellingProduct {
+  productId: string;
+  name: string;
+  quantitySold: number;
+  revenue: string;
+}
+
+export interface SellerStats {
+  totalRevenue: string;
+  totalOrders: number;
+  totalItemsSold: number;
+  bestSellingProducts: BestSellingProduct[];
+}

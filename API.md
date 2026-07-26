@@ -1,13 +1,9 @@
 # Multi-Vendor Marketplace Backend — API Reference
 
-Status: Phase 1 (Foundation), Phase 2 (Auth & RBAC), Phase 3 (Multi-vendor order logic)
-complete. Phase 4 (Payments) is **in progress** — Stripe setup + schema (4.1), the
-restructured checkout flow (4.2), and the webhook that confirms/fails a payment (4.3) are
-all done and tested. What's still missing: the actual frontend payment form (Stripe
-Elements, 4.4) and full end-to-end testing via the real Stripe CLI (4.5) — until 4.4
-exists, there's no way for a real browser checkout to ever actually confirm a payment
-(the `clientSecret` from `POST /api/orders` has nowhere to go yet). No `Review` endpoints
-exist yet (Phase 5).
+Status: Phases 1 through 5 are all complete — Foundation, Auth & RBAC, Multi-vendor order
+logic, Payments (both Stripe and SSLCommerz, real sandbox round-trips for each), and
+Reviews & polish (pagination/search/filter, `Review` CRUD, aggregate ratings, seller
+analytics). Phase 6 (production hardening) hasn't started.
 
 This document is written for building a frontend client (e.g. Next.js) against the API
 as it exists right now. It reflects only what is actually implemented and tested.
@@ -33,14 +29,13 @@ auth with `BUYER`/`SELLER`/`ADMIN` roles. A Next.js frontend is the next thing b
 — initially just as a way to exercise these endpoints by hand, rather than a full product
 build.
 
-**Where things stand:** Phase 1 (Foundation — schema + layered CRUD pattern), Phase 2
-(Auth & RBAC — JWT, refresh tokens, role enforcement), and Phase 3 (multi-vendor order
-logic — checkout, buyer/seller order views, fulfillment status, concurrency-safe stock)
-are all complete and manually tested against their permission boundaries, including a
-real concurrency stress test (8 simultaneous checkout requests against a single unit of
-stock — exactly one succeeded, never oversold). Phase 4 (payments) is partway done — see
-the status line above. Phase 5 (reviews/search) and Phase 6 (production hardening) haven't
-started yet.
+**Where things stand:** Phases 1 through 5 are all complete and manually tested against
+their permission boundaries, including a real concurrency stress test in Phase 3 (8
+simultaneous checkout requests against a single unit of stock — exactly one succeeded,
+never oversold), real sandbox round-trips for both Stripe and SSLCommerz in Phase 4, and
+in Phase 5, product search/pagination, verified-purchase-only reviews, and a seller
+analytics dashboard that correctly excludes unpaid/declined orders from revenue. Phase 6
+(production hardening) hasn't started yet.
 
 ---
 
@@ -278,13 +273,19 @@ No auth needed.
       "id": "...", "name": "...", "description": "...",
       "price": "999.99", "stock": 5,
       "sellerId": "...", "categoryId": "...",
-      "createdAt": "...", "updatedAt": "..."
+      "createdAt": "...", "updatedAt": "...",
+      "averageRating": 4.5, "reviewCount": 2
     }
   ],
   "pagination": { "page": 1, "limit": 20, "total": 24, "totalPages": 2 }
 }
 ```
 Update any frontend code that expected a bare array to read `.data` instead.
+
+**`averageRating`/`reviewCount`** (Phase 5.4) are computed fresh on every request from the
+`Review` table — not stored on the product itself. `averageRating` is `null` (not `0`) when
+`reviewCount` is `0`, specifically so the frontend can distinguish "no ratings yet" from
+"rated zero stars" — don't render a `0`-star display when it's actually `null`.
 
 **Query params (all optional):**
 | Param | Type | Default | Notes |
@@ -356,6 +357,7 @@ several different sellers — each seller only ever sees their own slice of that
 | GET | `/api/orders/admin` | `ADMIN` only | List every order in the system |
 | GET | `/api/orders/:id` | order's buyer or `ADMIN` | View one order + its items |
 | GET | `/api/orders/seller-items` | `SELLER` only | List only the line items *you* sold |
+| GET | `/api/orders/seller-stats` | `SELLER` only | Revenue/sales dashboard for your own products |
 | PATCH | `/api/orders/items/:id/status` | item's seller or `ADMIN` | Update one line item's fulfillment status |
 
 Role note: unlike `Product`, checkout has **no role restriction** — `BUYER`, `SELLER`, and
@@ -520,6 +522,30 @@ Note the nested `order` object is deliberately minimal (`id`/`status`/`buyerId`/
 only) — it does **not** include that order's full `items`, so you never see another
 seller's line items even though they may share the same `orderId`.
 
+### `GET /api/orders/seller-stats` — revenue/sales dashboard (Phase 5.5)
+
+Requires `SELLER` role. `200` →
+```json
+{
+  "totalRevenue": "80.00",
+  "totalOrders": 2,
+  "totalItemsSold": 5,
+  "bestSellingProducts": [
+    { "productId": "cmrs...", "name": "StatsProductA", "quantitySold": 3, "revenue": "30.00" },
+    { "productId": "cmrs...", "name": "StatsProductB", "quantitySold": 2, "revenue": "50.00" }
+  ]
+}
+```
+- **Only counts orders that actually got paid** — an `OrderItem` only contributes to these
+  numbers if its parent `Order`'s `Payment.status = "SUCCEEDED"`. A declined card or a
+  checkout still sitting `PENDING` contributes nothing, even though the buyer did reserve
+  stock at checkout time.
+- `totalOrders` counts **distinct orders**, not line items — if a buyer bought 2 different
+  products from you in one checkout, that's 1 order, not 2.
+- `bestSellingProducts` is capped at the top 5 by `quantitySold`, descending.
+- `totalRevenue`/`revenue` are strings (same `Decimal`-serialization reasoning as
+  `Product.price` elsewhere in this API).
+
 ### `PATCH /api/orders/items/:id/status` — update fulfillment status
 
 **Body:** `{ "status": "SHIPPED" }` — one of `PENDING` / `SHIPPED` / `DELIVERED` /
@@ -544,7 +570,50 @@ CANCELLED   CANCELLED                (terminal, no further changes)
 
 ---
 
-## 8. Frontend payment integration guide — Stripe (Phase 4.4 — built)
+## 8. Review endpoints (`/api/reviews`)
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/reviews?productId=X` | Public |
+| POST | `/api/reviews` | any authenticated user (with a delivered purchase) |
+| DELETE | `/api/reviews/:id` | review's own author or `ADMIN` |
+
+### `GET /api/reviews?productId=X`
+`productId` query param is **required** — `400` if missing. No auth needed. `200` → array:
+```json
+[
+  {
+    "id": "cmrs...", "rating": 5, "comment": "actually love it",
+    "productId": "cmrs...", "buyerId": "cmrs...",
+    "createdAt": "...", "updatedAt": "...",
+    "buyer": { "id": "cmrs...", "name": "RevBuyer" }
+  }
+]
+```
+`404` if the product itself doesn't exist.
+
+### `POST /api/reviews` — create **or** update your own review (upsert)
+
+**Body:** `{ "productId": "cmrs...", "rating": 5, "comment": "optional, max 1000 chars" }`
+- `rating`: integer 1-5, required.
+- **You can only review a product you've actually received** — enforced by checking for an
+  `OrderItem` belonging to you with `status: "DELIVERED"` for that product. `403` otherwise
+  (`{ "message": "You can only review a product you have received" }`), even if you're
+  logged in and the product exists.
+- **Submitting again for the same product updates your existing review** (same `id`, new
+  `rating`/`comment`) rather than creating a second one — there's no separate `PUT`
+  endpoint; this one endpoint handles both create and update.
+- `404` if the product doesn't exist. `400` for invalid `rating` (outside 1-5) or missing
+  fields. `200` on success (same status code whether it created or updated — the response
+  body doesn't indicate which happened).
+
+### `DELETE /api/reviews/:id`
+`403` if you're neither the review's author nor `ADMIN`. `404` if not found. `204` on
+success.
+
+---
+
+## 9. Frontend payment integration guide — Stripe (Phase 4.4 — built)
 
 This section documents what was already built for the Stripe checkout UI, kept here as
 reference for anyone working on the frontend. See §9 below for the equivalent SSLCommerz
@@ -602,7 +671,7 @@ from the buyer's actual perspective: stock should be restored and the order shou
 
 ---
 
-## 9. Frontend payment integration guide — SSLCommerz (Phase 4.6.4 — built)
+## 10. Frontend payment integration guide — SSLCommerz (Phase 4.6.4 — built)
 
 Fundamentally different flow from Stripe's — **no embedded card form, no `Elements`,
 no `PaymentElement`**. This is a full-page redirect gateway.
@@ -676,7 +745,7 @@ something to solve while building the frontend redirect flow itself.
 
 ---
 
-## 10. Quick endpoint index
+## 11. Quick endpoint index
 
 ```
 GET    /health
@@ -707,9 +776,14 @@ POST   /api/orders                    (any authenticated role — checkout; body
 GET    /api/orders                    (own orders as buyer)
 GET    /api/orders/admin              (ADMIN — every order in the system)
 GET    /api/orders/seller-items       (SELLER — own sold items only)
+GET    /api/orders/seller-stats       (SELLER — revenue/sales dashboard)
 GET    /api/orders/:id                (order's buyer or ADMIN)
 PATCH  /api/orders/items/:id/status   (item's seller or ADMIN)
 
 POST   /api/payments/webhook          (Stripe only — never call this from the frontend)
 POST   /api/payments/sslcommerz-ipn   (SSLCommerz only — never call this from the frontend)
+
+GET    /api/reviews?productId=X       (public)
+POST   /api/reviews                   (any authenticated user with a delivered purchase; upsert)
+DELETE /api/reviews/:id               (review's author or ADMIN)
 ```

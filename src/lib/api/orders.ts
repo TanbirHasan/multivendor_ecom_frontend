@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { CheckoutPayload, CheckoutResponse, Order, OrderItem, OrderItemStatus } from "@/lib/types";
+import type { CheckoutPayload, CheckoutResponse, Order, OrderItem, OrderItemStatus, SellerStats } from "@/lib/types";
 
 export async function checkout(payload: CheckoutPayload) {
   const { data } = await apiClient.post<CheckoutResponse>("/orders", payload);
@@ -23,6 +23,11 @@ export async function getOrder(id: string) {
 
 export async function listSellerItems() {
   const { data } = await apiClient.get<OrderItem[]>("/orders/seller-items");
+  return data;
+}
+
+export async function getSellerStats() {
+  const { data } = await apiClient.get<SellerStats>("/orders/seller-stats");
   return data;
 }
 

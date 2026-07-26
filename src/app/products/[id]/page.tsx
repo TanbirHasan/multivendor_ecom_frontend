@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AddToCart } from "@/components/cart/add-to-cart";
+import { ReviewsSection } from "@/components/reviews/reviews-section";
+import { StarRatingDisplay } from "@/components/reviews/star-rating";
 import { extractErrorMessage } from "@/lib/api/client";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -83,6 +85,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   const outOfStock = product.stock <= 0;
 
+  async function refreshProduct() {
+    try {
+      setProduct(await getProduct(id));
+    } catch {
+      // best-effort refresh after a review change
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
       <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm font-bold text-stone-500 hover:text-teal-700 dark:text-stone-400 dark:hover:text-amber-300">
@@ -104,6 +114,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="rounded-[2rem] border border-stone-200/70 bg-white/82 p-6 shadow-xl shadow-stone-950/8 backdrop-blur sm:p-8 dark:border-stone-800 dark:bg-stone-900/78">
           {category && <Badge className="mb-4 w-fit">{category.name}</Badge>}
           <h1 className="text-3xl font-black tracking-tight text-stone-950 dark:text-white sm:text-4xl">{product.name}</h1>
+          <div className="mt-2 flex items-center gap-2">
+            <StarRatingDisplay rating={product.averageRating} />
+            <span className="text-sm font-medium text-stone-500 dark:text-stone-400">
+              {product.reviewCount > 0
+                ? `${product.averageRating?.toFixed(1)} (${product.reviewCount} review${product.reviewCount === 1 ? "" : "s"})`
+                : "No reviews yet"}
+            </span>
+          </div>
           <p className="mt-4 text-4xl font-black text-teal-700 dark:text-amber-300">{formatPrice(product.price)}</p>
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -148,6 +166,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       </div>
+
+      <ReviewsSection productId={product.id} onChanged={refreshProduct} />
 
       <ConfirmDialog
         open={confirmOpen}

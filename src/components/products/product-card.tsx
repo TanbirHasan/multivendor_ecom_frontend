@@ -3,6 +3,7 @@ import { Package, Sparkles } from "lucide-react";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { StarRatingDisplay } from "@/components/reviews/star-rating";
 
 const gradients = [
   "from-teal-700 via-teal-600 to-amber-400",
@@ -41,7 +42,15 @@ export function ProductCard({ product, categoryName }: { product: Product; categ
         )}
       </div>
       <div className="flex flex-1 flex-col gap-3 p-5">
-        {categoryName && <Badge>{categoryName}</Badge>}
+        <div className="flex items-center justify-between gap-2">
+          {categoryName && <Badge>{categoryName}</Badge>}
+          {product.reviewCount > 0 && (
+            <div className="flex items-center gap-1 text-xs font-semibold text-stone-500 dark:text-stone-400">
+              <StarRatingDisplay rating={product.averageRating} size="sm" />
+              <span>({product.reviewCount})</span>
+            </div>
+          )}
+        </div>
         <h3 className="line-clamp-1 text-base font-bold text-stone-950 group-hover:text-teal-700 dark:text-stone-100 dark:group-hover:text-amber-300">
           {product.name}
         </h3>
